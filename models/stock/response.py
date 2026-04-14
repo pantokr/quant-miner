@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, Field
+from typing import List, Optional
 from .common import KisApiResponse
 
 
@@ -21,7 +21,7 @@ class BalanceOutput2(BaseModel):
     nxdy_excc_amt: str      # 익일정산금액
     pchs_amt_smtl_amt: str  # 매입금액합계금액
     evlu_amt_smtl_amt: str  # 평가금액합계금액
-    evlu_pfls_smtl_amt: str # 평가손익합계금액
+    evlu_pfls_smtl_amt: str  # 평가손익합계금액
     tot_evlu_amt: str       # 총평가금액
 
 
@@ -56,7 +56,7 @@ class DailyCcldResponse(KisApiResponse):
 # --- 주식당일분봉조회 ---
 
 class MinuteChartItem(BaseModel):
-    stck_cntg_hour: str # 체결시간 (HHMMSS)
+    stck_cntg_hour: str  # 체결시간 (HHMMSS)
     stck_prpr: str      # 현재가
     stck_oprc: str      # 시가
     stck_hgpr: str      # 최고가
@@ -68,15 +68,15 @@ class MinuteChartItem(BaseModel):
 
 class MinuteChartResponse(KisApiResponse):
     output1: dict = {}                  # 현재가 요약 (단건)
-    output2: List[MinuteChartItem] = [] # 분봉 리스트
+    output2: List[MinuteChartItem] = []  # 분봉 리스트
 
 
 # --- 주식일별분봉조회 (과거 날짜) ---
 # 당일과 달리 acml_vol(누적거래량) 없음, stck_bsop_date(영업일자) 추가
 
 class MinuteDailyChartItem(BaseModel):
-    stck_bsop_date: str # 영업일자 (YYYYMMDD)
-    stck_cntg_hour: str # 체결시간 (HHMMSS)
+    stck_bsop_date: str  # 영업일자 (YYYYMMDD)
+    stck_cntg_hour: str  # 체결시간 (HHMMSS)
     stck_prpr: str      # 현재가 (종가)
     stck_oprc: str      # 시가
     stck_hgpr: str      # 최고가
@@ -117,7 +117,7 @@ class CurrentPriceItem(BaseModel):
     stck_hgpr: str      # 최고가
     stck_lwpr: str      # 최저가
     prdy_vrss: str      # 전일대비
-    prdy_vrss_sign: str # 전일대비부호
+    prdy_vrss_sign: str  # 전일대비부호
     prdy_ctrt: str      # 전일대비율
     acml_vol: str       # 누적거래량
     acml_tr_pbmn: str   # 누적거래대금
@@ -139,11 +139,11 @@ class CurrentPriceResponse(KisApiResponse):
 class RankItem(BaseModel):
     """등락률 순위 아이템"""
     hts_kor_isnm: str   # 종목명
-    mksc_shrn_iscd: str # 종목코드
+    mksc_shrn_iscd: str  # 종목코드
     data_rank: str      # 순위
     stck_prpr: str      # 현재가
     prdy_vrss: str      # 전일대비
-    prdy_vrss_sign: str # 전일대비부호
+    prdy_vrss_sign: str  # 전일대비부호
     prdy_ctrt: str      # 등락률
     acml_vol: str       # 거래량
     acml_tr_pbmn: str = ""  # 거래대금
@@ -156,7 +156,7 @@ class RankResponse(KisApiResponse):
 class VolumeRankItem(BaseModel):
     """거래량 순위 아이템"""
     hts_kor_isnm: str   # 종목명
-    mksc_shrn_iscd: str # 종목코드
+    mksc_shrn_iscd: str  # 종목코드
     data_rank: str      # 순위
     stck_prpr: str      # 현재가
     prdy_ctrt: str      # 등락률
@@ -169,14 +169,18 @@ class VolumeRankResponse(KisApiResponse):
 
 
 class ForeignInstRankItem(BaseModel):
-    """외국인/기관 순매수 순위 아이템"""
+    """외국인/기관 순매수 순위 아이템 (가집계)"""
     hts_kor_isnm: str   # 종목명
-    mksc_shrn_iscd: str # 종목코드
-    data_rank: str      # 순위
+    mksc_shrn_iscd: str  # 종목코드
+    data_rank: str = "0"
     stck_prpr: str      # 현재가
     prdy_ctrt: str      # 등락률
-    ntby_qty: str       # 순매수수량
-    ntby_pbmn: str      # 순매수대금
+    ntby_qty: str = Field(alias="ntby_cntg_qty")  # 순매수수량
+    # 순매수대금 (일부 API에서 누락될 수 있음)
+    ntby_pbmn: str = Field(alias="ntby_tr_pbmn", default="0")
+
+    class Config:
+        populate_by_name = True
 
 
 class ForeignInstRankResponse(KisApiResponse):

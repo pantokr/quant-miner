@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import List
 
-from services.chart.range import get_minute_chart_range
+from services.chart.minute import get_minute_chart
 from services.quote.ohlcv import get_period_ohlcv, get_ohlcv_all
 from services.quote.current import get_current_price
 from services.quote.orderbook import get_orderbook
@@ -78,12 +78,12 @@ class InvestorRow(BaseModel):
 @router.get("/{iscd}/minute-chart", response_model=List[MinuteChartRow])
 def minute_chart(
     iscd: str,
-    start: str = Query(..., examples=["20260102 090000"], description="시작 일시 'YYYYMMDD HHMMSS'"),
-    end:   str = Query(..., examples=["20260102 153000"], description="종료 일시 'YYYYMMDD HHMMSS'"),
+    date: str = Query(..., examples=["20260102"],
+                      description="조회 일자 'YYYYMMDD'"),
 ):
-    """분봉 조회 (DB 캐시 자동 처리)"""
+    """분봉 조회 (당일 09:00:00 ~ 15:30:00 전체 데이터)"""
     try:
-        rows = get_minute_chart_range(iscd=iscd, start=start, end=end)
+        rows = get_minute_chart(iscd=iscd, date=date)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
@@ -102,7 +102,8 @@ def period_ohlcv(
     save: bool = Query(True, description="DB 저장 여부"),
 ):
     """기간별 OHLCV 조회 (save=true 시 DB 적재)"""
-    items = get_period_ohlcv(iscd=iscd, start_date=start, end_date=end, period=period)
+    items = get_period_ohlcv(iscd=iscd, start_date=start,
+                             end_date=end, period=period)
     if not items:
         raise HTTPException(status_code=404, detail="데이터 없음")
     if save:

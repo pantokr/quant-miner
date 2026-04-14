@@ -1,8 +1,5 @@
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from db.stock_minute import create_table as create_minute_table
 from db.stock_ohlcv import create_table as create_ohlcv_table
 from db.stock_investor import create_table as create_investor_table
@@ -15,6 +12,21 @@ app = FastAPI(
     description="KIS OpenAPI 기반 주식 데이터 수집/조회 서버",
     version="0.2.0",
 )
+
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 실운영시에는 특정 도메인으로 제한 권장
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/test")
+def test():
+    return {"message": "top level test"}
+
 
 app.include_router(stock.router)
 app.include_router(account.router)

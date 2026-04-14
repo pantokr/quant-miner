@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 from typing import List
+import logging
 
 from services.market.ranking import (
     get_fluctuation_rank,
@@ -92,7 +93,7 @@ def foreign_rank(
         raise HTTPException(status_code=502, detail="데이터 없음")
     return [
         NetBuyRankRow(
-            rank=int(i.data_rank),
+            rank=idx + 1,
             stock_code=i.mksc_shrn_iscd,
             stock_name=i.hts_kor_isnm,
             price=int(i.stck_prpr),
@@ -100,7 +101,7 @@ def foreign_rank(
             net_buy_qty=int(i.ntby_qty),
             net_buy_amount=int(i.ntby_pbmn),
         )
-        for i in items
+        for idx, i in enumerate(items)
     ]
 
 
@@ -116,7 +117,7 @@ def institution_rank(
         raise HTTPException(status_code=502, detail="데이터 없음")
     return [
         NetBuyRankRow(
-            rank=int(i.data_rank),
+            rank=idx + 1,
             stock_code=i.mksc_shrn_iscd,
             stock_name=i.hts_kor_isnm,
             price=int(i.stck_prpr),
@@ -124,5 +125,5 @@ def institution_rank(
             net_buy_qty=int(i.ntby_qty),
             net_buy_amount=int(i.ntby_pbmn),
         )
-        for i in items
+        for idx, i in enumerate(items)
     ]

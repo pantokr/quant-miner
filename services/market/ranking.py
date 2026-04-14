@@ -69,7 +69,7 @@ def get_volume_rank(sort: str = "0", access_token: str = None) -> List[VolumeRan
 
 def get_foreign_rank(sort: str = "0", access_token: str = None) -> List[ForeignInstRankItem]:
     """
-    외국인 순매수 순위 조회
+    외국인 순매수 순위 조회 (가집계)
 
     Args:
         sort: 0:순매수수량 1:순매수대금
@@ -78,12 +78,16 @@ def get_foreign_rank(sort: str = "0", access_token: str = None) -> List[ForeignI
     token = access_token or get_valid_token()
 
     res = requests.get(
-        f"{BASE_URL}/uapi/domestic-stock/v1/ranking/foreign-institution-total",
-        headers=_header(token, "FHPST01700000"),
-        params=ForeignInstRankRequest(
-            fid_trgt_cls_code="1",
-            fid_rank_sort_cls_code=sort,
-        ).model_dump(),
+        f"{BASE_URL}/uapi/domestic-stock/v1/quotations/foreign-institution-total",
+        headers=_header(token, "FHPTJ04400000"),
+        params={
+            "FID_COND_MRKT_DIV_CODE": "V",
+            "FID_COND_SCR_DIV_CODE": "16449",
+            "FID_INPUT_ISCD": "0000",
+            "FID_DIV_CLS_CODE": sort,
+            "FID_RANK_SORT_CLS_CODE": "0",
+            "FID_ETC_CLS_CODE": "1"
+        }
     )
     res.raise_for_status()
     result = ForeignInstRankResponse(**res.json())
@@ -95,7 +99,7 @@ def get_foreign_rank(sort: str = "0", access_token: str = None) -> List[ForeignI
 
 def get_institution_rank(sort: str = "0", access_token: str = None) -> List[ForeignInstRankItem]:
     """
-    기관 순매수 순위 조회
+    기관 순매수 순위 조회 (가집계)
 
     Args:
         sort: 0:순매수수량 1:순매수대금
@@ -104,12 +108,16 @@ def get_institution_rank(sort: str = "0", access_token: str = None) -> List[Fore
     token = access_token or get_valid_token()
 
     res = requests.get(
-        f"{BASE_URL}/uapi/domestic-stock/v1/ranking/foreign-institution-total",
-        headers=_header(token, "FHPST01700000"),
-        params=ForeignInstRankRequest(
-            fid_trgt_cls_code="2",
-            fid_rank_sort_cls_code=sort,
-        ).model_dump(),
+        f"{BASE_URL}/uapi/domestic-stock/v1/quotations/foreign-institution-total",
+        headers=_header(token, "FHPTJ04400000"),
+        params={
+            "FID_COND_MRKT_DIV_CODE": "V",
+            "FID_COND_SCR_DIV_CODE": "16449",
+            "FID_INPUT_ISCD": "0000",
+            "FID_DIV_CLS_CODE": sort,
+            "FID_RANK_SORT_CLS_CODE": "0",
+            "FID_ETC_CLS_CODE": "2"
+        }
     )
     res.raise_for_status()
     result = ForeignInstRankResponse(**res.json())

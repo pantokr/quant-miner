@@ -1,13 +1,13 @@
 """
-주식일별분봉조회 — 특정 날짜의 전체 분봉 데이터를 페이지네이션으로 수집
-KIS API: FHKST03010230 (일별분봉전용, FHKST03010200은 당일전용)
-- FID_INPUT_DATE_1 + FID_INPUT_HOUR_1 으로 날짜+시각 앵커 지정
-- 응답 항목의 stck_bsop_date로 실제 날짜 확인
+분봉 차트 서비스 (통합)
+- 특정 날짜의 전체 분봉 데이터 수집 및 조회
+- DB 캐시 처리 및 API 연동
 """
 
 import logging
-import requests
+from datetime import datetime, timedelta
 from typing import List, Optional
+import requests
 
 from models.stock import (
     KisCommonHeader,
@@ -16,9 +16,20 @@ from models.stock import (
     MinuteDailyChartItem,
 )
 from services.auth import APP_KEY, APP_SECRET, BASE_URL
+from services.auth.cache import get_valid_token
+from db.stock_minute import (
+    get_existing_dates,
+    mark_no_data_date,
+    upsert_minute_chart,
+    query_minute_range,
+)
 
-TR_ID = "FHKST03010230"  # 일별분봉 전용 (FHKST03010200은 당일분봉 전용)
+TR_ID = "FHKST03010230"  # 일별분봉 전용
 _API_PATH = "/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice"
+
+# 장 운영 시간 고정
+MARKET_OPEN = "090000"
+MARKET_CLOSE = "153000"
 
 
 def _fetch_page(
@@ -55,41 +66,26 @@ def _fetch_page(
     return result
 
 
-def get_daily_minute_chart(
+def get_daily_minute_chart_api(
     iscd: str,
     date: str,
     access_token: str,
-    market_open: str = "090000",
-    market_close: str = "153000",
 ) -> List[MinuteDailyChartItem]:
-    """
-    특정 날짜의 전체 분봉 데이터 조회 (페이지네이션 자동 처리)
-
-    - FID_INPUT_DATE_1=date, FID_INPUT_HOUR_1=market_close 에서 시작
-    - 응답 항목의 stck_bsop_date가 요청 날짜와 일치하는 것만 수집
-    - 응답 중 요청 날짜 항목이 없으면 해당 날짜 데이터 없음(휴장일 등)으로 판단
-
-    Returns:
-        체결시간 오름차순 정렬된 MinuteDailyChartItem 리스트
-    """
+    """특정 날짜의 전체 분봉 데이터 API 수집"""
     all_items: List[MinuteDailyChartItem] = []
     seen_times: set[str] = set()
-    current_hour = market_close
-
-    logging.info(f"[{iscd}] {date} 분봉 조회 시작")
+    current_hour = MARKET_CLOSE
 
     while True:
         result = _fetch_page(access_token, iscd, date, current_hour)
         if result is None or not result.output2:
             break
 
-        # 요청한 날짜와 일치하는 항목만 수집
         matched = [
             item for item in result.output2
             if item.stck_bsop_date == date and item.stck_cntg_hour not in seen_times
         ]
 
-        # 페이지에 해당 날짜 항목이 하나도 없으면 종료
         if not matched and all_items:
             break
 
@@ -100,24 +96,48 @@ def get_daily_minute_chart(
         oldest_time = oldest_item.stck_cntg_hour
         oldest_date = oldest_item.stck_bsop_date
 
-        logging.debug(f"  {len(matched)}건 수집 (최고오래된: {oldest_date}/{oldest_time})")
-
-        # 날짜를 넘어갔거나 장 시작 시각 이전이면 종료
-        if oldest_date < date or oldest_time <= market_open:
+        if oldest_date < date or oldest_time <= MARKET_OPEN:
             break
 
         current_hour = oldest_time
 
-    # 장 시간 범위 필터 + 오름차순 정렬
     filtered = [
         item for item in all_items
-        if market_open <= item.stck_cntg_hour <= market_close
+        if MARKET_OPEN <= item.stck_cntg_hour <= MARKET_CLOSE
     ]
     filtered.sort(key=lambda x: x.stck_cntg_hour)
-
-    if filtered:
-        logging.info(f"[{iscd}] {date} {len(filtered)}건 분봉 수집 완료")
-    else:
-        logging.warning(f"[{iscd}] {date} 분봉 데이터 없음 (휴장일 또는 조회 범위 초과)")
-
     return filtered
+
+
+def get_minute_chart(iscd: str, date: str) -> List[dict]:
+    """
+    특정 날짜의 분봉 데이터 조회 (DB 캐시 우선)
+    시간은 090000 ~ 153000 고정
+    """
+    # 1. DB 캐시 확인
+    existing_dates = get_existing_dates(iscd, date, date)
+
+    if date not in existing_dates:
+        # 2. 캐시 없으면 API 호출
+        token = get_valid_token()
+        if not token:
+            raise RuntimeError("토큰 발급 실패")
+
+        logging.info(f"[{iscd}] {date} DB 미존재 → API 호출")
+        items = get_daily_minute_chart_api(
+            iscd=iscd, date=date, access_token=token)
+
+        if not items:
+            mark_no_data_date(iscd, date)
+            return []
+
+        rows = [item.model_dump() for item in items]
+        upsert_minute_chart(stock_code=iscd, trade_date=date, rows=rows)
+        logging.info(f"[{iscd}] {date} {len(rows)}건 저장 완료")
+
+    # 3. 데이터 조회 및 반환
+    return query_minute_range(
+        stock_code=iscd,
+        start_date=date, start_time=MARKET_OPEN,
+        end_date=date,   end_time=MARKET_CLOSE,
+    )
