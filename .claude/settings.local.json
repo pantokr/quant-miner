@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(venv/Scripts/uvicorn server.main:app --port 8000 --reload)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :8000)",
+      "Bash(taskkill /F /PID 51728 /PID 48596)",
+      "Bash(taskkill /F /PID 51728)",
+      "Bash(taskkill /F /PID 48596)",
+      "Bash(cmd /c \"taskkill /F /PID 51728\")",
+      "Bash(cmd /c \"taskkill /F /PID 48596\")",
+      "Bash(curl -s http://localhost:8001/openapi.json)",
+      "Bash(venv/Scripts/python -c \"import json,sys; [print\\(m.upper\\(\\), p\\) for p,ops in json.load\\(sys.stdin\\)['paths'].items\\(\\) for m in ops]\")"
+    ]
+  }
+}

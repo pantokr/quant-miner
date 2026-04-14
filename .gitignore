@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+commands/
+.env
+.token_cache.json
+test/
