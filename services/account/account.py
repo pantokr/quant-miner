@@ -32,7 +32,7 @@ def get_balance(access_token: str = None) -> BalanceResponse:
     from services.auth.cache import get_valid_token
 
     token = access_token or get_valid_token()
-    tr_id = "TTTC8434R" if ENV_DV == "real" else "VTTC8434R"
+    tr_id = "TTTC8494R"
 
     header = _header(token, tr_id)
 
@@ -52,8 +52,7 @@ def get_daily_ccld(start_dt: str = None, end_dt: str = None, access_token: str =
     today = datetime.now().strftime("%Y%m%d")
 
     token = access_token or get_valid_token()
-    tr_id = "TTTC0081R" if ENV_DV == "real" else "VTTC0081R"
-
+    tr_id = "TTTC0081R"
     header = _header(token, tr_id)
 
     req = DailyCcldRequest(
