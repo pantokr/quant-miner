@@ -6,6 +6,8 @@ from typing import List
 
 from models.stock import KisCommonHeader, PeriodOhlcvRequest, OhlcvItem, OhlcvResponse
 from services.auth import APP_KEY, APP_SECRET, BASE_URL
+from services.auth.cache import get_valid_token
+from db.stock_ohlcv import upsert_ohlcv
 
 # KIS API 1회 호출 최대 반환 레코드 수 (경험적 한계)
 _PAGE_SIZE = 100
@@ -49,16 +51,20 @@ def get_period_ohlcv(
     end_date: str,
     period: str = "D",
     access_token: str = None,
+    save: bool = False,
 ) -> List[OhlcvItem]:
     """
     국내주식기간별시세 단일 구간 조회
 
     Args:
         period: D(일) W(주) M(월) Y(년)
+        save: True 시 DB 적재
     """
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
-    return _fetch_ohlcv_page(token, iscd, start_date, end_date, period)
+    items = _fetch_ohlcv_page(token, iscd, start_date, end_date, period)
+    if save and items:
+        upsert_ohlcv(iscd, period, [i.model_dump() for i in items])
+    return items
 
 
 def get_ohlcv_all(
@@ -66,6 +72,7 @@ def get_ohlcv_all(
     start_date: str,
     access_token: str = None,
     period: str = "D",
+    save: bool = False,
 ) -> List[OhlcvItem]:
     """
     start_date 부터 오늘까지 전체 OHLCV 수집 (페이지네이션 자동 처리)
@@ -80,7 +87,6 @@ def get_ohlcv_all(
     Returns:
         base_date 오름차순 OhlcvItem 리스트
     """
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
 
     today = datetime.today().strftime("%Y%m%d")
@@ -118,4 +124,6 @@ def get_ohlcv_all(
     # base_date 오름차순 정렬
     all_items.sort(key=lambda x: x.stck_bsop_date)
     logging.info(f"[{iscd}] OHLCV 총 {len(all_items)}건 수집 완료")
+    if save and all_items:
+        upsert_ohlcv(iscd, period, [i.model_dump() for i in all_items])
     return all_items

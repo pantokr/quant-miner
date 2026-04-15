@@ -3,11 +3,11 @@ import requests
 
 from models.stock import KisCommonHeader, CurrentPriceRequest, CurrentPriceItem, CurrentPriceResponse
 from services.auth import APP_KEY, APP_SECRET, BASE_URL
+from services.auth.cache import get_valid_token
 
 
 def get_current_price(iscd: str, access_token: str = None) -> CurrentPriceItem:
     """주식현재가 시세 조회"""
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
 
     header = KisCommonHeader(

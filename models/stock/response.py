@@ -136,10 +136,10 @@ class CurrentPriceResponse(KisApiResponse):
 
 # ── 2순위 ────────────────────────────────────────────────
 
-class RankItem(BaseModel):
+class FluctuationRankItem(BaseModel):
     """등락률 순위 아이템"""
     hts_kor_isnm: str   # 종목명
-    mksc_shrn_iscd: str  # 종목코드
+    stck_shrn_iscd: str  # 종목코드
     data_rank: str      # 순위
     stck_prpr: str      # 현재가
     prdy_vrss: str      # 전일대비
@@ -149,8 +149,8 @@ class RankItem(BaseModel):
     acml_tr_pbmn: str = ""  # 거래대금
 
 
-class RankResponse(KisApiResponse):
-    output: List[RankItem] = []
+class FluctuationRankResponse(KisApiResponse):
+    output: List[FluctuationRankItem] = []
 
 
 class VolumeRankItem(BaseModel):

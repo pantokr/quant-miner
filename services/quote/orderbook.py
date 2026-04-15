@@ -3,11 +3,11 @@ import requests
 
 from models.stock import KisCommonHeader, OrderBookRequest, OrderBookResponse
 from services.auth import APP_KEY, APP_SECRET, BASE_URL
+from services.auth.cache import get_valid_token
 
 
 def get_orderbook(iscd: str, access_token: str = None) -> OrderBookResponse:
     """주식현재가 호가/예상체결 조회"""
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
 
     header = KisCommonHeader(

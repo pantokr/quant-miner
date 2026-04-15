@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
 from typing import List
 
+from models.stock import (
+    MinuteChartRow, OhlcvRow, CurrentPrice, OrderBookRow, InvestorRow,
+)
 from services.chart.minute import get_minute_chart
 from services.quote.ohlcv import get_period_ohlcv, get_ohlcv_all
 from services.quote.current import get_current_price
@@ -9,71 +11,9 @@ from services.quote.orderbook import get_orderbook
 from services.quote.investor import get_investor_trend
 from services.market.short_sell import get_short_sell
 from services.market.credit import get_credit
-from db.stock_ohlcv import upsert_ohlcv
-from db.stock_investor import upsert_investor_trend
-from db.stock_short import upsert_short_sell, upsert_credit
 
 router = APIRouter(prefix="/stock", tags=["stock"])
 
-
-# ── 스키마 ────────────────────────────────────────────────
-
-class MinuteChartRow(BaseModel):
-    stock_code: str
-    trade_date: str
-    trade_time: str
-    open_price: int
-    high_price: int
-    low_price: int
-    close_price: int
-    volume: int
-    cumul_amount: int
-
-
-class OhlcvRow(BaseModel):
-    date: str
-    open: int
-    high: int
-    low: int
-    close: int
-    volume: int
-    amount: int
-    change_sign: str
-    change_val: int
-
-
-class CurrentPrice(BaseModel):
-    current: int
-    open: int
-    high: int
-    low: int
-    change_val: int
-    change_rate: float
-    volume: int
-    market_cap: int
-    per: float
-    pbr: float
-    foreign_ratio: float
-
-
-class OrderBookRow(BaseModel):
-    ask_prices: List[int]
-    bid_prices: List[int]
-    ask_quantities: List[int]
-    bid_quantities: List[int]
-    total_ask_qty: int
-    total_bid_qty: int
-    expected_price: str
-
-
-class InvestorRow(BaseModel):
-    date: str
-    individual_net: int
-    foreign_net: int
-    institution_net: int
-
-
-# ── 분봉 ──────────────────────────────────────────────────
 
 @router.get("/{iscd}/minute-chart", response_model=List[MinuteChartRow])
 def minute_chart(
@@ -91,8 +31,6 @@ def minute_chart(
     return rows
 
 
-# ── 시세 ──────────────────────────────────────────────────
-
 @router.get("/{iscd}/ohlcv", response_model=List[OhlcvRow])
 def period_ohlcv(
     iscd: str,
@@ -103,11 +41,9 @@ def period_ohlcv(
 ):
     """기간별 OHLCV 조회 (save=true 시 DB 적재)"""
     items = get_period_ohlcv(iscd=iscd, start_date=start,
-                             end_date=end, period=period)
+                             end_date=end, period=period, save=save)
     if not items:
         raise HTTPException(status_code=404, detail="데이터 없음")
-    if save:
-        upsert_ohlcv(iscd, period, [i.model_dump() for i in items])
     return [
         OhlcvRow(
             date=i.stck_bsop_date,
@@ -128,11 +64,9 @@ def ohlcv_all(
     save: bool = Query(True, description="DB 저장 여부"),
 ):
     """전 기간 OHLCV 수집 (페이지네이션 자동 처리, 시간 소요 있음)"""
-    items = get_ohlcv_all(iscd=iscd, start_date=start, period=period)
+    items = get_ohlcv_all(iscd=iscd, start_date=start, period=period, save=save)
     if not items:
         raise HTTPException(status_code=404, detail="데이터 없음")
-    if save:
-        upsert_ohlcv(iscd, period, [i.model_dump() for i in items])
     return [
         OhlcvRow(
             date=i.stck_bsop_date,
@@ -178,12 +112,12 @@ def orderbook(iscd: str):
 
 
 @router.get("/{iscd}/investor", response_model=List[InvestorRow])
-def investor_trend(iscd: str):
+def investor_trend(
+    iscd: str,
+    save: bool = Query(True, description="DB 저장 여부"),
+):
     """투자자별 매매동향 (모의환경에서는 빈 배열)"""
-    items = get_investor_trend(iscd)
-    rows = [i.model_dump() for i in items]
-    if rows:
-        upsert_investor_trend(iscd, rows)
+    items = get_investor_trend(iscd, save=save)
     return [
         InvestorRow(
             date=i.stck_bsop_date,
@@ -195,8 +129,6 @@ def investor_trend(iscd: str):
     ]
 
 
-# ── 시장 데이터 ────────────────────────────────────────────
-
 @router.get("/{iscd}/short-sell")
 def short_sell(
     iscd: str,
@@ -205,9 +137,7 @@ def short_sell(
     save: bool = Query(True),
 ):
     """공매도 현황 (실전투자 환경 필요)"""
-    items = get_short_sell(iscd, start, end)
-    if items and save:
-        upsert_short_sell(iscd, [i.model_dump() for i in items])
+    items = get_short_sell(iscd, start, end, save=save)
     return {"count": len(items), "data": [i.model_dump() for i in items]}
 
 
@@ -219,7 +149,5 @@ def credit(
     save: bool = Query(True),
 ):
     """신용잔고 (실전투자 환경 필요)"""
-    items = get_credit(iscd, start, end)
-    if items and save:
-        upsert_credit(iscd, [i.model_dump() for i in items])
+    items = get_credit(iscd, start, end, save=save)
     return {"count": len(items), "data": [i.model_dump() for i in items]}

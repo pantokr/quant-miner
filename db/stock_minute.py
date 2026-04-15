@@ -114,6 +114,38 @@ def mark_no_data_date(stock_code: str, trade_date: str) -> None:
         conn.commit()
 
 
+def is_no_data_date(stock_code: str, trade_date: str) -> bool:
+    """해당 날짜가 no_data(휴장일 등)로 마킹돼 있는지 확인"""
+    date_str = f"{trade_date[:4]}-{trade_date[4:6]}-{trade_date[6:]}"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM stock_minute_no_data WHERE stock_code = %s AND trade_date = %s",
+                (stock_code, date_str),
+            )
+            return cur.fetchone() is not None
+
+
+def get_minute_coverage(stock_code: str, trade_date: str) -> tuple[str | None, str | None]:
+    """
+    DB에 저장된 해당 날짜의 (MIN trade_time, MAX trade_time) 반환.
+    데이터가 없으면 (None, None) 반환.
+    """
+    date_str = f"{trade_date[:4]}-{trade_date[4:6]}-{trade_date[6:]}"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT MIN(trade_time), MAX(trade_time)
+                FROM stock_minute_chart
+                WHERE stock_code = %s AND trade_date = %s
+                """,
+                (stock_code, date_str),
+            )
+            row = cur.fetchone()
+            return (row[0], row[1]) if row and row[0] is not None else (None, None)
+
+
 def get_existing_dates(stock_code: str, start_date: str, end_date: str) -> Set[str]:
     """
     해당 종목+날짜 범위에서 이미 처리된 날짜 집합 반환.

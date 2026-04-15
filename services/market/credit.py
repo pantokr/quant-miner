@@ -5,6 +5,8 @@ from typing import List
 
 from models.stock import KisCommonHeader, CreditRequest, CreditItem, CreditResponse
 from services.auth import APP_KEY, APP_SECRET, BASE_URL
+from services.auth.cache import get_valid_token
+from db.stock_short import upsert_credit
 
 
 def get_credit(
@@ -12,12 +14,12 @@ def get_credit(
     start_date: str,
     end_date: str,
     access_token: str = None,
+    save: bool = False,
 ) -> List[CreditItem]:
     """
     신용잔고 조회
     ※ 모의투자 환경에서는 지원 안 됨
     """
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
 
     header = KisCommonHeader(
@@ -42,4 +44,7 @@ def get_credit(
     if not result.is_success:
         logging.warning(f"신용잔고 오류: {result.msg1}")
         return []
-    return result.output1
+    items = result.output1
+    if save and items:
+        upsert_credit(iscd, [i.model_dump() for i in items])
+    return items

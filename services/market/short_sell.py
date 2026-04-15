@@ -5,6 +5,8 @@ from typing import List
 
 from models.stock import KisCommonHeader, ShortSellRequest, ShortSellItem, ShortSellResponse
 from services.auth import APP_KEY, APP_SECRET, BASE_URL
+from services.auth.cache import get_valid_token
+from db.stock_short import upsert_short_sell
 
 
 def get_short_sell(
@@ -12,12 +14,12 @@ def get_short_sell(
     start_date: str,
     end_date: str,
     access_token: str = None,
+    save: bool = False,
 ) -> List[ShortSellItem]:
     """
     공매도 현황 조회
     ※ 모의투자 환경에서는 지원 안 됨
     """
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
 
     header = KisCommonHeader(
@@ -42,4 +44,7 @@ def get_short_sell(
     if not result.is_success:
         logging.warning(f"공매도 오류: {result.msg1}")
         return []
-    return result.output1
+    items = result.output1
+    if save and items:
+        upsert_short_sell(iscd, [i.model_dump() for i in items])
+    return items

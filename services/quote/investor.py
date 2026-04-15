@@ -5,14 +5,15 @@ from typing import List
 
 from models.stock import KisCommonHeader, InvestorRequest, InvestorItem, InvestorResponse
 from services.auth import APP_KEY, APP_SECRET, BASE_URL
+from services.auth.cache import get_valid_token
+from db.stock_investor import upsert_investor_trend
 
 
-def get_investor_trend(iscd: str, access_token: str = None) -> List[InvestorItem]:
+def get_investor_trend(iscd: str, access_token: str = None, save: bool = False) -> List[InvestorItem]:
     """
     주식현재가 투자자별 매매동향 조회
     ※ 모의투자 환경에서는 데이터가 없을 수 있음
     """
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
 
     header = KisCommonHeader(
@@ -31,4 +32,7 @@ def get_investor_trend(iscd: str, access_token: str = None) -> List[InvestorItem
     if not result.is_success:
         logging.error(f"투자자동향 오류: {result.msg1}")
         return []
-    return result.output2
+    items = result.output2
+    if save and items:
+        upsert_investor_trend(iscd, [i.model_dump() for i in items])
+    return items

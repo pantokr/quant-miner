@@ -5,11 +5,12 @@ from typing import List
 
 from models.stock import (
     KisCommonHeader,
-    FluctuationRankRequest, RankItem, RankResponse,
+    FluctuationRankRequest, FluctuationRankItem, FluctuationRankResponse,
     VolumeRankRequest, VolumeRankItem, VolumeRankResponse,
     ForeignInstRankRequest, ForeignInstRankItem, ForeignInstRankResponse,
 )
 from services.auth import APP_KEY, APP_SECRET, BASE_URL
+from services.auth.cache import get_valid_token
 
 
 def _header(token: str, tr_id: str) -> dict:
@@ -20,24 +21,22 @@ def _header(token: str, tr_id: str) -> dict:
     ).to_dict()
 
 
-def get_fluctuation_rank(sort: str = "0", access_token: str = None) -> List[RankItem]:
+def get_fluctuation_rank(sort: str = "0", access_token: str = None) -> List[FluctuationRankItem]:
     """
     등락률 순위 조회
 
     Args:
         sort: 0:상승률 1:하락률 2:시가대비상승 3:시가대비하락
     """
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
 
     res = requests.get(
         f"{BASE_URL}/uapi/domestic-stock/v1/ranking/fluctuation",
-        headers=_header(token, "FHPST01710000"),
-        params=FluctuationRankRequest(
-            fid_rank_sort_cls_code=sort).model_dump(),
+        headers=_header(token, "FHPST01700000"),
+        params=FluctuationRankRequest(FID_RANK_SORT_CLS_CODE=sort).model_dump(),
     )
     res.raise_for_status()
-    result = RankResponse(**res.json())
+    result = FluctuationRankResponse(**res.json())
     if not result.is_success:
         logging.error(f"등락률순위 오류: {result.msg1}")
         return []
@@ -51,13 +50,12 @@ def get_volume_rank(sort: str = "0", access_token: str = None) -> List[VolumeRan
     Args:
         sort: 0:거래량 1:거래대금
     """
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
 
     res = requests.get(
         f"{BASE_URL}/uapi/domestic-stock/v1/quotations/volume-rank",
         headers=_header(token, "FHPST01710000"),
-        params=VolumeRankRequest(fid_rank_sort_cls_code=sort).model_dump(),
+        params=VolumeRankRequest(FID_BLNG_CLS_CODE=sort).model_dump(),
     )
     res.raise_for_status()
     result = VolumeRankResponse(**res.json())
@@ -74,7 +72,6 @@ def get_foreign_rank(sort: str = "0", access_token: str = None) -> List[ForeignI
     Args:
         sort: 0:순매수수량 1:순매수대금
     """
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
 
     res = requests.get(
@@ -86,8 +83,8 @@ def get_foreign_rank(sort: str = "0", access_token: str = None) -> List[ForeignI
             "FID_INPUT_ISCD": "0000",
             "FID_DIV_CLS_CODE": sort,
             "FID_RANK_SORT_CLS_CODE": "0",
-            "FID_ETC_CLS_CODE": "1"
-        }
+            "FID_ETC_CLS_CODE": "1",
+        },
     )
     res.raise_for_status()
     result = ForeignInstRankResponse(**res.json())
@@ -104,7 +101,6 @@ def get_institution_rank(sort: str = "0", access_token: str = None) -> List[Fore
     Args:
         sort: 0:순매수수량 1:순매수대금
     """
-    from services.auth.cache import get_valid_token
     token = access_token or get_valid_token()
 
     res = requests.get(
@@ -116,8 +112,8 @@ def get_institution_rank(sort: str = "0", access_token: str = None) -> List[Fore
             "FID_INPUT_ISCD": "0000",
             "FID_DIV_CLS_CODE": sort,
             "FID_RANK_SORT_CLS_CODE": "0",
-            "FID_ETC_CLS_CODE": "2"
-        }
+            "FID_ETC_CLS_CODE": "2",
+        },
     )
     res.raise_for_status()
     result = ForeignInstRankResponse(**res.json())
