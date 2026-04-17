@@ -5,7 +5,11 @@ from db.stock_ohlcv import create_table as create_ohlcv_table
 from db.stock_investor import create_table as create_investor_table
 from db.stock_short import create_tables as create_short_tables
 from db.token_store import create_table as create_token_table
+from db.stock_finance import create_table as create_finance_table
+from db.stock_info import create_tables as create_info_tables
+from db.stock_holiday import create_table as create_holiday_table
 from server.routers import stock, account, ranking
+from server.routers import finance
 
 app = FastAPI(
     title="Quant Miner API",
@@ -31,6 +35,7 @@ def test():
 app.include_router(stock.router)
 app.include_router(account.router)
 app.include_router(ranking.router)
+app.include_router(finance.router)
 
 
 @app.on_event("startup")
@@ -40,6 +45,9 @@ def startup():
     create_ohlcv_table()
     create_investor_table()
     create_short_tables()
+    create_finance_table()
+    create_info_tables()
+    create_holiday_table()
 
 
 @app.get("/health")

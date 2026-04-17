@@ -10,7 +10,12 @@
       "Bash(cmd /c \"taskkill /F /PID 51728\")",
       "Bash(cmd /c \"taskkill /F /PID 48596\")",
       "Bash(curl -s http://localhost:8001/openapi.json)",
-      "Bash(venv/Scripts/python -c \"import json,sys; [print\\(m.upper\\(\\), p\\) for p,ops in json.load\\(sys.stdin\\)['paths'].items\\(\\) for m in ops]\")"
+      "Bash(venv/Scripts/python -c \"import json,sys; [print\\(m.upper\\(\\), p\\) for p,ops in json.load\\(sys.stdin\\)['paths'].items\\(\\) for m in ops]\")",
+      "Bash(curl -sv -N -H 'Accept: text/event-stream' http://localhost:8081/mcp/sse)",
+      "Bash(curl -s -N -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -H 'mcp-session-id: 7e93fba749864b0ea543df5a23926d12' -d '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}' http://localhost:8081/mcp)",
+      "Bash(curl -s -N -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -H 'mcp-session-id: 7e93fba749864b0ea543df5a23926d12' -d '{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}' http://localhost:8081/mcp)",
+      "Bash(curl -s -N -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -H 'mcp-session-id: 7e93fba749864b0ea543df5a23926d12' -d '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/list\"}' http://localhost:8081/mcp)",
+      "Bash(python -c ':*)"
     ]
   }
 }

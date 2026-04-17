@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from .common import KisApiResponse
 
 
@@ -245,3 +245,91 @@ class CreditItem(BaseModel):
 
 class CreditResponse(KisApiResponse):
     output1: List[CreditItem] = []
+
+
+# ── 재무/기업정보 ──────────────────────────────────────────
+
+class FinanceItem(BaseModel):
+    """재무정보 아이템 (재무상태표/손익계산서/재무비율 등 공통)
+    KIS API가 기간별로 다양한 필드를 반환하므로 raw dict로 저장
+    """
+    model_config = {"extra": "allow"}
+
+    stac_yymm: str = ""     # 결산년월 (YYYYMM)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.model_dump()
+
+
+class FinanceResponse(KisApiResponse):
+    output: List[Dict[str, Any]] = []
+
+
+class StockInfoItem(BaseModel):
+    """주식기본조회 아이템"""
+    pdno: str = ""              # 종목번호
+    prdt_type_cd: str = ""      # 상품유형코드
+    mket_id_cd: str = ""        # 시장ID코드
+    scrt_grp_cls_code: str = "" # 증권그룹분류코드
+    excg_dvsn_cd: str = ""      # 거래소구분코드
+    setl_mmdd: str = ""         # 결산월일
+    lstg_stqty: str = ""        # 상장주식수
+    lstg_dt: str = ""           # 상장일자
+    mrkt_cap_cls_code: str = "" # 시가총액규모코드
+    prdt_abrv_name: str = ""    # 상품약어명
+    std_pdno: str = ""          # 표준상품번호 (ISIN)
+    prdt_eng_name: str = ""     # 상품영문명
+
+    model_config = {"extra": "allow"}
+
+
+class StockInfoResponse(KisApiResponse):
+    output: Optional[Dict[str, Any]] = None
+
+
+class HolidayItem(BaseModel):
+    """영업일조회 아이템"""
+    bass_dt: str = ""       # 기준일자
+    wday_dvsn_cd: str = ""  # 요일구분코드 (01:일 02:월 ... 07:토)
+    bzdy_yn: str = ""       # 영업일여부 (Y/N)
+    tr_day_yn: str = ""     # 거래일여부
+    opnd_yn: str = ""       # 개장여부
+    sttl_day_yn: str = ""   # 결제일여부
+
+
+class HolidayResponse(KisApiResponse):
+    output: List[HolidayItem] = []
+    CTX_AREA_FK: str = ""
+    CTX_AREA_NK: str = ""
+
+
+class DividendItem(BaseModel):
+    """배당금 아이템"""
+    record_date: str = ""       # 기준일
+    sht_cd: str = ""            # 종목코드
+    per_sto_divi_amt: str = ""  # 1주당 배당금액
+    divi_kind: str = ""         # 배당구분
+    divi_pay_dt: str = ""       # 배당지급일
+
+    model_config = {"extra": "allow"}
+
+
+class DividendResponse(KisApiResponse):
+    output: List[DividendItem] = []
+
+
+class EstimateItem(BaseModel):
+    """추정실적 아이템"""
+    stac_yymm: str = ""     # 결산년월
+    sale_account: str = ""  # 매출액
+    sale_totl_prfi: str = "" # 매출총이익
+    bsop_prti: str = ""     # 영업이익
+    op_prfi: str = ""       # 세전순이익
+    thtr_ntin: str = ""     # 당기순이익
+    eps: str = ""           # EPS
+
+    model_config = {"extra": "allow"}
+
+
+class EstimateResponse(KisApiResponse):
+    output: List[EstimateItem] = []

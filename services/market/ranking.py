@@ -33,8 +33,10 @@ def get_fluctuation_rank(sort: str = "0", access_token: str = None) -> List[Fluc
     res = requests.get(
         f"{BASE_URL}/uapi/domestic-stock/v1/ranking/fluctuation",
         headers=_header(token, "FHPST01700000"),
-        params=FluctuationRankRequest(FID_RANK_SORT_CLS_CODE=sort).model_dump(),
+        params=FluctuationRankRequest(
+            FID_RANK_SORT_CLS_CODE=sort).model_dump(),
     )
+
     res.raise_for_status()
     result = FluctuationRankResponse(**res.json())
     if not result.is_success:
