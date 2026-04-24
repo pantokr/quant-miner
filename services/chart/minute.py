@@ -32,6 +32,9 @@ _API_PATH = "/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice"
 MARKET_OPEN = "090000"
 MARKET_CLOSE = "153000"
 
+# 09:00~15:30 = 390분, 완전한 데이터 최소 기준 (여유 두고 380)
+MIN_COMPLETE_COUNT = 380
+
 
 def _fetch_page(
     access_token: str,
@@ -120,9 +123,13 @@ def get_minute_chart(iscd: str, date: str) -> List[dict]:
     if is_no_data_date(iscd, date):
         return []
 
-    # 2. DB 커버리지 확인
-    min_time, max_time = get_minute_coverage(iscd, date)
-    is_complete = (min_time == MARKET_OPEN and max_time == MARKET_CLOSE)
+    # 2. DB 커버리지 확인 (시간 범위 + 건수)
+    min_time, max_time, count = get_minute_coverage(iscd, date)
+    is_complete = (
+        min_time == MARKET_OPEN
+        and max_time == MARKET_CLOSE
+        and count >= MIN_COMPLETE_COUNT
+    )
 
     if is_complete:
         return query_minute_range(
@@ -137,22 +144,18 @@ def get_minute_chart(iscd: str, date: str) -> List[dict]:
         raise RuntimeError("토큰 발급 실패")
 
     if min_time is not None:
-        logging.info(f"[{iscd}] {date} 데이터 불완전 ({min_time}~{max_time}) → API 재조회")
+        logging.info(
+            f"[{iscd}] {date} 데이터 불완전 "
+            f"({min_time}~{max_time}, {count}건) → API 재조회"
+        )
     else:
         logging.info(f"[{iscd}] {date} DB 미존재 → API 호출")
 
-    items = get_daily_minute_chart_api(iscd=iscd, date=date, access_token=token)
+    items = get_daily_minute_chart_api(
+        iscd=iscd, date=date, access_token=token)
 
     if not items:
-        if min_time is None:
-            # 완전히 없는 경우(휴장일 등)만 no_data 마킹
-            mark_no_data_date(iscd, date)
-        # 부분 데이터가 있으면 그대로 반환
-        return query_minute_range(
-            stock_code=iscd,
-            start_date=date, start_time=MARKET_OPEN,
-            end_date=date,   end_time=MARKET_CLOSE,
-        )
+        raise RuntimeError(f"API에서 {iscd} {date} 분봉 데이터를 가져올 수 없음")
 
     rows = [item.model_dump() for item in items]
     upsert_minute_chart(stock_code=iscd, trade_date=date, rows=rows)

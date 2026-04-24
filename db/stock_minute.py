@@ -126,24 +126,26 @@ def is_no_data_date(stock_code: str, trade_date: str) -> bool:
             return cur.fetchone() is not None
 
 
-def get_minute_coverage(stock_code: str, trade_date: str) -> tuple[str | None, str | None]:
+def get_minute_coverage(stock_code: str, trade_date: str) -> tuple[str | None, str | None, int]:
     """
-    DB에 저장된 해당 날짜의 (MIN trade_time, MAX trade_time) 반환.
-    데이터가 없으면 (None, None) 반환.
+    DB에 저장된 해당 날짜의 (MIN trade_time, MAX trade_time, COUNT) 반환.
+    데이터가 없으면 (None, None, 0) 반환.
     """
     date_str = f"{trade_date[:4]}-{trade_date[4:6]}-{trade_date[6:]}"
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT MIN(trade_time), MAX(trade_time)
+                SELECT MIN(trade_time), MAX(trade_time), COUNT(*)
                 FROM stock_minute_chart
                 WHERE stock_code = %s AND trade_date = %s
                 """,
                 (stock_code, date_str),
             )
             row = cur.fetchone()
-            return (row[0], row[1]) if row and row[0] is not None else (None, None)
+            if row and row[0] is not None:
+                return (row[0], row[1], row[2])
+            return (None, None, 0)
 
 
 def get_existing_dates(stock_code: str, start_date: str, end_date: str) -> Set[str]:
