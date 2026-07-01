@@ -60,7 +60,7 @@ def daily_ccld(
             side=item.sll_buy_dvsn_cd_name,
             order_qty=int(item.ord_qty),
             filled_qty=int(item.tot_ccld_qty),
-            avg_price=float(item.avg_prc),
+            avg_price=float(item.avg_prvs or 0),
             total_amount=int(item.tot_ccld_amt),
         )
         for item in res.output1
