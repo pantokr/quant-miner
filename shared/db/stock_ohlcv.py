@@ -70,3 +70,31 @@ def upsert_ohlcv(stock_code: str, period_type: str, rows: List[dict]) -> int:
             psycopg2.extras.execute_values(cur, UPSERT_SQL, values)
         conn.commit()
         return len(values)
+
+
+def query_ohlcv(stock_code: str, period_type: str, start_date: str, end_date: str) -> List[dict]:
+    """DB에서 기간별 OHLCV 조회 (base_date 오름차순). OhlcvRow 스키마와 동일 형태 반환."""
+    s = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}"
+    e = f"{end_date[:4]}-{end_date[4:6]}-{end_date[6:]}"
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    TO_CHAR(base_date, 'YYYYMMDD') AS date,
+                    open_price  AS open,
+                    high_price  AS high,
+                    low_price   AS low,
+                    close_price AS close,
+                    volume,
+                    amount,
+                    COALESCE(change_sign, '') AS change_sign,
+                    COALESCE(change_val, 0)   AS change_val
+                FROM stock_ohlcv
+                WHERE stock_code = %s AND period_type = %s
+                  AND base_date BETWEEN %s AND %s
+                ORDER BY base_date ASC
+                """,
+                (stock_code, period_type, s, e),
+            )
+            return [dict(r) for r in cur.fetchall()]

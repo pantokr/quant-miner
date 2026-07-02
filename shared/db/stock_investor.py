@@ -62,3 +62,24 @@ def upsert_investor_trend(stock_code: str, rows: List[dict]) -> int:
             psycopg2.extras.execute_values(cur, UPSERT_SQL, values)
         conn.commit()
         return len(values)
+
+
+def query_investor_trend(stock_code: str, limit: int = 60) -> List[dict]:
+    """DB에서 투자자 순매수 추이 조회 (최근순). InvestorRow 스키마와 동일 형태 반환."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    TO_CHAR(trade_date, 'YYYYMMDD') AS date,
+                    prsn_ntby_qty AS individual_net,
+                    frgn_ntby_qty AS foreign_net,
+                    orgn_ntby_qty AS institution_net
+                FROM stock_investor_trend
+                WHERE stock_code = %s
+                ORDER BY trade_date DESC
+                LIMIT %s
+                """,
+                (stock_code, limit),
+            )
+            return [dict(r) for r in cur.fetchall()]

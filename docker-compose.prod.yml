@@ -1,3 +1,5 @@
+# 원격 서버용 — 빌드 없이 load된 이미지로 기동.
+# (docker load -i quant-images.tar 후 docker compose -f docker-compose.prod.yml up -d)
 services:
   db:
     image: postgres:17-alpine
@@ -14,14 +16,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # KIS 게이트웨이 — KIS OpenAPI 호출 전담
+  # KIS 게이트웨이 — 내부 전용(외부 포트 미공개)
   api:
     image: quant-miner-api:latest
-    build:
-      context: .
-      dockerfile: api/Dockerfile
-    ports:
-      - "9000:9000"
     env_file:
       - .env
     depends_on:
@@ -29,12 +26,9 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # 웹 백엔드 — 프론트 서빙(DB 조회 + api 중계). 프론트는 여기만 호출.
+  # 웹 백엔드 — 외부 공개(프론트/Vercel이 호출)
   backend:
     image: quant-miner-backend:latest
-    build:
-      context: .
-      dockerfile: web/backend/Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -50,9 +44,6 @@ services:
 
   collector:
     image: quant-miner-collector:latest
-    build:
-      context: .
-      dockerfile: collector/Dockerfile
     env_file:
       - .env
     depends_on:
@@ -62,17 +53,12 @@ services:
 
   trader:
     image: quant-miner-trader:latest
-    build:
-      context: .
-      dockerfile: trader/Dockerfile
     env_file:
       - .env
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
-
-# frontend는 Vercel이 담당하므로 compose에서 제외
 
 volumes:
   pgdata:

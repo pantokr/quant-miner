@@ -5,3 +5,4 @@ commands/
 .env
 .token_cache.json
 test/
+ssh-key*
