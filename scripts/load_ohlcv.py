@@ -17,8 +17,8 @@ import logging
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from services.quote.ohlcv import get_ohlcv_all
-from db.stock_ohlcv import create_table, upsert_ohlcv
+from shared.services.quote.ohlcv import get_ohlcv_all
+from shared.db.stock_ohlcv import create_table, upsert_ohlcv
 
 logging.basicConfig(
     level=logging.INFO,

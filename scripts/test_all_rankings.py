@@ -1,5 +1,5 @@
 
-from services.market.ranking import (
+from shared.services.market.ranking import (
     get_fluctuation_rank,
     get_volume_rank,
     get_foreign_rank,

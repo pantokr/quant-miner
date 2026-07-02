@@ -1,11 +1,11 @@
-from server.main import app
-import server.main
+from api.main import app
+import api.main
 import sys
 import os
 sys.path.insert(0, os.getcwd())
 
 
-print(f"App location: {server.main.__file__}")
+print(f"App location: {api.main.__file__}")
 print("--- Registered Routes ---")
 
 for route in app.routes:

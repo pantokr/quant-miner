@@ -15,7 +15,24 @@
       "Bash(curl -s -N -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -H 'mcp-session-id: 7e93fba749864b0ea543df5a23926d12' -d '{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}' http://localhost:8081/mcp)",
       "Bash(curl -s -N -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -H 'mcp-session-id: 7e93fba749864b0ea543df5a23926d12' -d '{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\",\"params\":{}}' http://localhost:8081/mcp)",
       "Bash(curl -s -N -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -H 'mcp-session-id: 7e93fba749864b0ea543df5a23926d12' -d '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/list\"}' http://localhost:8081/mcp)",
-      "Bash(python -c ':*)"
+      "Bash(python -c ':*)",
+      "Bash(venv/Scripts/python -c \"import api.main; import shared.kis_auth, shared.config; print\\('OK: api.main + shared imports resolve'\\)\")",
+      "Bash(venv/Scripts/python -m pip install \"sqlalchemy>=2.0,<2.1\" --quiet)",
+      "Bash(venv/Scripts/python -c \"import sqlalchemy; print\\('sqlalchemy', sqlalchemy.__version__\\)\")",
+      "Bash(venv/Scripts/python -c \"import collector.main, collector.gap_filler, collector.kis_client_collector; import trader.main, trader.strategy, trader.risk_manager, trader.kis_client_trader; import shared.db_models; import api.main; print\\('OK: all units import'\\)\")",
+      "Bash(git rm *)",
+      "Bash(mkdir -p research/backtest research/rl_train)",
+      "Bash(venv/Scripts/python -c \"from api.main import app; print\\('OpenAPI paths:', len\\(app.openapi\\(\\)['paths']\\)\\)\")",
+      "Bash(venv/Scripts/uvicorn api.main:app --port 8000)",
+      "Bash(venv/Scripts/python -c ' *)",
+      "Bash(curl -s -m 15 \"http://localhost:8000/stock/005930/current\")",
+      "Bash(curl -s -m 20 \"http://localhost:8000/stock/005930/ohlcv?start=20260601&end=20260612&save=false\")",
+      "Bash(awk '{print $5}')",
+      "Bash(read pid *)",
+      "Bash(cmd //c 'taskkill /F /PID __TRACKED_VAR__')",
+      "Bash(npm --version)",
+      "Bash(echo \"npm: $\\(npm --version || echo 'MISSING'\\)\")",
+      "Bash(npm install *)"
     ]
   }
 }

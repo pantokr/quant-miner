@@ -1,5 +1,5 @@
 
-from services.market.ranking import get_volume_rank
+from shared.services.market.ranking import get_volume_rank
 import logging
 import sys
 import os

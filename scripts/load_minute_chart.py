@@ -18,9 +18,9 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from services.auth.cache import get_valid_token
-from services.chart.minute import get_daily_minute_chart
-from db.stock_minute import (
+from shared.kis_auth import get_valid_token
+from shared.services.chart.minute import get_daily_minute_chart
+from shared.db.stock_minute import (
     create_table,
     get_existing_dates,
     mark_no_data_date,
