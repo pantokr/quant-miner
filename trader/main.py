@@ -1,19 +1,23 @@
-"""트레이딩 오케스트레이터 (배포 단위 ②, 스캐폴드).
+"""트레이딩 오케스트레이터 (배포 단위: trader) — 페이퍼 모드.
 
-전략에서 시그널을 받아 리스크 검사 후 주문을 실행하는 루프 뼈대.
-현재는 NoopStrategy + 미구현 주문으로 실제 매매하지 않는다.
+DB의 일봉 종가로 전략 시그널을 만들고, 리스크 검사 후 페이퍼 브로커로 가상 체결한다.
+실제 주문은 내지 않는다(안전). 실주문 전환은 별도 작업(kis_client_trader).
 
 실행:
-    python -m trader.main --iscd 005930 --loop --interval 60
+    python -m trader.main --iscd 005930 000660
+    python -m trader.main --iscd 005930 --short 5 --long 20 --loop --interval 60
 """
 import os
 import time
 import argparse
 import logging
+from datetime import datetime, timedelta
+from typing import List
 
-from trader.strategy import NoopStrategy
+from shared.db.stock_ohlcv import query_ohlcv
+from trader.strategy import MovingAverageCrossStrategy, Strategy
+from trader.paper import PaperBroker
 from trader.risk_manager import RiskManager
-from trader.kis_client_trader import trader_client
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,46 +27,78 @@ logging.basicConfig(
 logger = logging.getLogger("trader")
 
 
-def _target_stocks(cli_iscd) -> list[str]:
+def _target_stocks(cli_iscd) -> List[str]:
     if cli_iscd:
         return cli_iscd
     env = os.getenv("TRADE_STOCKS", "")
     return [s.strip() for s in env.split(",") if s.strip()] or ["005930"]
 
 
-def run_once(stocks, strategy, risk) -> None:
+def load_closes(iscd: str, days: int = 200) -> List[float]:
+    """DB에서 최근 일봉 종가(오름차순)를 로드."""
+    end = datetime.today()
+    start = end - timedelta(days=days)
+    rows = query_ohlcv(iscd, "D", start.strftime("%Y%m%d"), end.strftime("%Y%m%d"))
+    return [float(r["close"]) for r in rows if r.get("close") is not None]
+
+
+def run_once(stocks: List[str], strategy: Strategy, risk: RiskManager, broker: PaperBroker) -> None:
+    prices = {}
     for iscd in stocks:
-        sig = strategy.generate(iscd)
-        if not sig or not risk.approve(sig):
-            logger.info(f"[{iscd}] 관망")
+        closes = load_closes(iscd)
+        if len(closes) < strategy.warmup:
+            logger.info(f"[{iscd}] 데이터 부족({len(closes)}<{strategy.warmup}) — 관망 (collector 먼저 실행)")
             continue
-        logger.info(f"[{iscd}] 시그널 {sig.side} qty={sig.qty} ({sig.reason})")
-        try:
-            if sig.side == "buy":
-                trader_client.buy(iscd, sig.qty, sig.price)
-            elif sig.side == "sell":
-                trader_client.sell(iscd, sig.qty, sig.price)
-        except NotImplementedError:
-            logger.warning(f"[{iscd}] 주문 API 미구현 — 실행 스킵 (스캐폴드)")
+        price = closes[-1]
+        prices[iscd] = price
+        side = strategy.signal(closes)
+
+        if side == "buy":
+            qty = risk.size_for(price)
+            if risk.approve_buy(broker, iscd, price, qty):
+                broker.buy(iscd, qty, price)
+                logger.info(f"[{iscd}] BUY  {qty}주 @ {price:,.0f} ({strategy.name})")
+            else:
+                logger.info(f"[{iscd}] BUY 시그널이나 리스크 한도로 스킵")
+        elif side == "sell":
+            pos = broker.position(iscd)
+            if pos.qty > 0:
+                broker.sell(iscd, pos.qty, price)
+                logger.info(f"[{iscd}] SELL {pos.qty}주 @ {price:,.0f} ({strategy.name})")
+            else:
+                logger.info(f"[{iscd}] SELL 시그널이나 보유 없음 — 스킵")
+        else:
+            logger.info(f"[{iscd}] 관망 @ {price:,.0f}")
+
+    equity = broker.equity(prices)
+    ret = (equity - broker.initial_cash) / broker.initial_cash * 100
+    logger.info(
+        f"[포트폴리오] 현금 {broker.cash:,.0f} · 평가 {equity:,.0f} "
+        f"· 실현손익 {broker.realized_pnl:,.0f} · 수익률 {ret:+.2f}% · 보유 {broker.held_count()}종목"
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="트레이더 (스캐폴드)")
-    parser.add_argument("--iscd", nargs="+")
-    parser.add_argument("--loop", action="store_true")
-    parser.add_argument("--interval", type=int, default=int(os.getenv("TRADE_INTERVAL", "60")))
-    args = parser.parse_args()
+    p = argparse.ArgumentParser(description="트레이더 (페이퍼 모드)")
+    p.add_argument("--iscd", nargs="+")
+    p.add_argument("--cash", type=int, default=int(os.getenv("TRADE_CASH", "10000000")))
+    p.add_argument("--short", type=int, default=5)
+    p.add_argument("--long", type=int, default=20)
+    p.add_argument("--loop", action="store_true")
+    p.add_argument("--interval", type=int, default=int(os.getenv("TRADE_INTERVAL", "60")))
+    args = p.parse_args()
 
     stocks = _target_stocks(args.iscd)
-    strategy = NoopStrategy()
+    strategy = MovingAverageCrossStrategy(args.short, args.long)
     risk = RiskManager()
-    logger.info(f"트레이더 시작 (스캐폴드). 대상: {stocks}")
+    broker = PaperBroker(cash=args.cash)
+    logger.info(f"트레이더 시작 [페이퍼] 전략={strategy.name} 초기현금={args.cash:,} 대상={stocks}")
 
     if not args.loop:
-        run_once(stocks, strategy, risk)
+        run_once(stocks, strategy, risk, broker)
         return
     while True:
-        run_once(stocks, strategy, risk)
+        run_once(stocks, strategy, risk, broker)
         time.sleep(args.interval)
 
 

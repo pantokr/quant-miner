@@ -1,10 +1,12 @@
-"""매매 전략 인터페이스 (스텁).
+"""매매 전략.
 
-TODO: 실제 전략 구현. 시그널 생성만 담당하고, 주문 실행은 main 루프가 담당한다.
+전략은 종가 시퀀스(closes)를 받아 최신 봉 시점의 액션(buy/sell/hold)을 돌려주는
+`signal()` 순수 함수 중심으로 설계한다. → trader(라이브 페이퍼)와 research(백테스트)가
+같은 전략을 그대로 공유한다.
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal, Sequence
 
 Side = Literal["buy", "sell", "hold"]
 
@@ -18,18 +20,49 @@ class Signal:
     reason: str = ""
 
 
+def sma(values: Sequence[float], n: int) -> float:
+    return sum(values[-n:]) / n
+
+
 class Strategy(ABC):
-    """모든 전략의 베이스."""
+    """모든 전략의 베이스. name/warmup을 노출하고 signal()을 구현한다."""
+    name: str = "base"
+    warmup: int = 0   # 판단에 필요한 최소 봉 수
 
     @abstractmethod
-    def generate(self, iscd: str) -> Optional[Signal]:
-        """종목에 대한 매매 시그널 생성. hold면 None 가능."""
+    def signal(self, closes: Sequence[float]) -> Side:
+        """closes(오름차순 종가) 기준, 마지막 봉 시점의 액션."""
         ...
 
 
-class NoopStrategy(Strategy):
-    """항상 관망하는 기본 전략 (스캐폴드)."""
+class MovingAverageCrossStrategy(Strategy):
+    """이동평균 교차: 골든크로스=매수, 데드크로스=매도."""
 
-    def generate(self, iscd: str) -> Optional[Signal]:
-        # TODO: shared.services 시세/지표를 사용해 시그널 산출
-        return Signal(iscd=iscd, side="hold", reason="noop")
+    def __init__(self, short: int = 5, long: int = 20) -> None:
+        if short >= long:
+            raise ValueError("short < long 이어야 합니다")
+        self.short = short
+        self.long = long
+        self.name = f"MA-Cross({short}/{long})"
+        self.warmup = long + 1
+
+    def signal(self, closes: Sequence[float]) -> Side:
+        if len(closes) < self.warmup:
+            return "hold"
+        s_now, l_now = sma(closes, self.short), sma(closes, self.long)
+        prev = closes[:-1]
+        s_prev, l_prev = sma(prev, self.short), sma(prev, self.long)
+        if s_prev <= l_prev and s_now > l_now:
+            return "buy"    # 골든크로스
+        if s_prev >= l_prev and s_now < l_now:
+            return "sell"   # 데드크로스
+        return "hold"
+
+
+class NoopStrategy(Strategy):
+    """항상 관망."""
+    name = "Noop"
+    warmup = 0
+
+    def signal(self, closes: Sequence[float]) -> Side:
+        return "hold"

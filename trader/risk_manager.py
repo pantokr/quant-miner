@@ -1,27 +1,40 @@
-"""리스크 관리 (스텁).
+"""리스크 관리 — 주문 실행 전 한도 검사 + 매수 수량 산정.
 
-주문 실행 전 포지션/손실 한도 등을 검사한다.
-TODO: 실제 한도 로직(종목당 최대 비중, 일일 손실 한도, 최대 포지션 수 등) 구현.
+페이퍼 브로커(trader.paper.PaperBroker)의 포지션/현금을 기준으로 판단한다.
 """
 from dataclasses import dataclass
 
-from trader.strategy import Signal
+from trader.paper import PaperBroker
 
 
 @dataclass
 class RiskLimits:
-    max_position_krw: int = 10_000_000     # 종목당 최대 평가금액
-    max_daily_loss_krw: int = 1_000_000    # 일일 최대 손실
-    max_positions: int = 10                # 최대 동시 보유 종목 수
+    order_krw: int = 1_000_000        # 1회 매수 금액
+    max_position_krw: int = 10_000_000  # 종목당 최대 평가금액
+    max_positions: int = 10           # 최대 동시 보유 종목 수
 
 
 class RiskManager:
     def __init__(self, limits: RiskLimits | None = None) -> None:
         self.limits = limits or RiskLimits()
 
-    def approve(self, signal: Signal) -> bool:
-        """시그널을 실제 주문으로 낼지 승인. TODO: 실제 검사."""
-        if signal.side == "hold":
+    def size_for(self, price: float) -> int:
+        """1회 매수 금액 한도 내 매수 수량."""
+        if price <= 0:
+            return 0
+        return int(self.limits.order_krw // price)
+
+    def approve_buy(self, broker: PaperBroker, iscd: str, price: float, qty: int) -> bool:
+        if qty <= 0 or price <= 0:
             return False
-        # TODO: 현재 잔고/포지션 조회 후 한도 검사
+        pos = broker.position(iscd)
+        # 종목당 최대 평가금액
+        if (pos.qty + qty) * price > self.limits.max_position_krw:
+            return False
+        # 최대 보유 종목 수 (신규 종목 진입 시에만 카운트)
+        if pos.qty == 0 and broker.held_count() >= self.limits.max_positions:
+            return False
+        # 현금 한도
+        if qty * price > broker.cash:
+            return False
         return True
