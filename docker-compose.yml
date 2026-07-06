@@ -1,6 +1,7 @@
 services:
   db:
-    image: postgres:17-alpine
+    image: timescale/timescaledb:latest-pg17
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
     env_file:
       - .env
     volumes:

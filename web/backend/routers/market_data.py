@@ -28,6 +28,19 @@ def minute_chart(iscd: str, date: str = Query(..., examples=["20260102"])):
     return proxy_get(f"/stock/{iscd}/minute-chart", {"date": date})
 
 
+@router.get("/stock/{iscd}/minute-chart/range", response_model=List[MinuteChartRow])
+def minute_chart_range(
+    iscd: str,
+    start: str = Query(..., examples=["20260102"]),
+    end: str = Query(..., examples=["20260131"]),
+):
+    """기간 분봉: DB 우선, 없으면 게이트웨이(수집·적재) 중계."""
+    rows = query_minute_range(iscd, start, MARKET_OPEN, end, MARKET_CLOSE)
+    if rows:
+        return rows
+    return proxy_get(f"/stock/{iscd}/minute-chart/range", {"start": start, "end": end})
+
+
 @router.get("/stock/{iscd}/ohlcv", response_model=List[OhlcvRow])
 def ohlcv(
     iscd: str,

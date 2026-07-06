@@ -2,7 +2,8 @@
 # (docker load -i quant-images.tar 후 docker compose -f docker-compose.prod.yml up -d)
 services:
   db:
-    image: postgres:17-alpine
+    image: timescale/timescaledb:latest-pg17
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
     env_file:
       - .env
     volumes:

@@ -4,7 +4,7 @@ from typing import List
 from shared.models.stock import (
     MinuteChartRow, OhlcvRow, CurrentPrice, OrderBookRow, InvestorRow,
 )
-from shared.services.chart.minute import get_minute_chart
+from shared.services.chart.minute import get_minute_chart, get_minute_chart_range
 from shared.services.quote.ohlcv import get_period_ohlcv, get_ohlcv_all
 from shared.services.quote.current import get_current_price
 from shared.services.quote.orderbook import get_orderbook
@@ -29,6 +29,21 @@ def minute_chart(
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
     return rows
+
+
+@router.get("/{iscd}/minute-chart/range", response_model=List[MinuteChartRow])
+def minute_chart_range(
+    iscd: str,
+    start: str = Query(..., examples=["20260102"], description="시작일 YYYYMMDD"),
+    end: str = Query(..., examples=["20260131"], description="종료일 YYYYMMDD"),
+):
+    """기간 분봉 전체 조회 (DB 캐시 우선, 없으면 FHKST03010230 수집·적재)."""
+    if start > end:
+        raise HTTPException(status_code=400, detail="start는 end보다 앞서야 합니다")
+    try:
+        return get_minute_chart_range(iscd=iscd, start_date=start, end_date=end)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @router.get("/{iscd}/ohlcv", response_model=List[OhlcvRow])

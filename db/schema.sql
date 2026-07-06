@@ -1,5 +1,6 @@
--- 자동 생성: shared/db_models.py 기반 (스키마 단일 소스)
--- 재생성: python -c "from db.schema import ..." 대신 db_models로부터 CreateTable 사용
+-- 자동 생성: shared/db_models.py + TimescaleDB DDL(shared/db/stock_minute.py)
+
+CREATE EXTENSION IF NOT EXISTS timescaledb;
 
 CREATE TABLE IF NOT EXISTS kis_token (
 	env VARCHAR(10) NOT NULL, 
@@ -96,10 +97,8 @@ CREATE TABLE IF NOT EXISTS stock_investor_trend (
 );
 
 CREATE TABLE IF NOT EXISTS stock_minute_chart (
-	id BIGSERIAL NOT NULL, 
 	stock_code VARCHAR(10) NOT NULL, 
-	trade_date DATE NOT NULL, 
-	trade_time VARCHAR(6) NOT NULL, 
+	ts TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
 	open_price BIGINT NOT NULL, 
 	high_price BIGINT NOT NULL, 
 	low_price BIGINT NOT NULL, 
@@ -107,10 +106,8 @@ CREATE TABLE IF NOT EXISTS stock_minute_chart (
 	volume BIGINT NOT NULL, 
 	cumul_amount BIGINT NOT NULL, 
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
-	PRIMARY KEY (id), 
-	UNIQUE (stock_code, trade_date, trade_time)
+	PRIMARY KEY (stock_code, ts)
 );
-CREATE INDEX IF NOT EXISTS idx_smc_code_date ON stock_minute_chart (stock_code, trade_date);
 
 CREATE TABLE IF NOT EXISTS stock_minute_no_data (
 	stock_code VARCHAR(10) NOT NULL, 
@@ -149,3 +146,29 @@ CREATE TABLE IF NOT EXISTS stock_short_sell (
 	PRIMARY KEY (id), 
 	UNIQUE (stock_code, trade_date)
 );
+
+-- ── TimescaleDB: stock_minute_chart 하이퍼테이블 ──
+SELECT create_hypertable('stock_minute_chart','ts', if_not_exists => TRUE);
+ALTER TABLE stock_minute_chart SET (timescaledb.compress,
+    timescaledb.compress_segmentby='stock_code', timescaledb.compress_orderby='ts DESC');
+SELECT add_compression_policy('stock_minute_chart', INTERVAL '7 days', if_not_exists => TRUE);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS stock_minute_5m
+WITH (timescaledb.continuous) AS
+SELECT
+    stock_code,
+    time_bucket('5 minutes', ts) AS bucket,
+    first(open_price, ts)  AS open_price,
+    max(high_price)        AS high_price,
+    min(low_price)         AS low_price,
+    last(close_price, ts)  AS close_price,
+    sum(volume)            AS volume,
+    last(cumul_amount, ts) AS cumul_amount
+FROM stock_minute_chart
+GROUP BY stock_code, bucket
+WITH NO DATA;
+SELECT add_continuous_aggregate_policy('stock_minute_5m',
+    start_offset      => INTERVAL '2 days',
+    end_offset        => INTERVAL '5 minutes',
+    schedule_interval => INTERVAL '5 minutes',
+    if_not_exists     => TRUE);

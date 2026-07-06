@@ -166,3 +166,40 @@ def get_minute_chart(iscd: str, date: str) -> List[dict]:
         start_date=date, start_time=MARKET_OPEN,
         end_date=date,   end_time=MARKET_CLOSE,
     )
+
+
+def _dates_between(start_date: str, end_date: str) -> List[str]:
+    cur = datetime.strptime(start_date, "%Y%m%d")
+    end = datetime.strptime(end_date, "%Y%m%d")
+    out = []
+    while cur <= end:
+        out.append(cur.strftime("%Y%m%d"))
+        cur += timedelta(days=1)
+    return out
+
+
+def get_minute_chart_range(iscd: str, start_date: str, end_date: str) -> List[dict]:
+    """
+    특정 종목의 특정 기간 [start_date, end_date] 분봉 전체 조회.
+
+    각 날짜를 DB 캐시 우선으로 확보(없으면 FHKST03010230 API 수집·적재)한 뒤,
+    기간 전체를 시간 오름차순으로 합쳐서 반환한다. 휴장/무데이터 날짜는 no_data로
+    마킹해 다음 호출부터 재조회하지 않는다.
+
+    Returns: MinuteChartRow 형태 dict 리스트 (stock_code, trade_date, trade_time, ...)
+    """
+    for date in _dates_between(start_date, end_date):
+        if is_no_data_date(iscd, date):
+            continue
+        try:
+            get_minute_chart(iscd, date)
+        except RuntimeError:
+            # API에서도 데이터 없음(휴장 등) → 마킹 후 다음 날짜로
+            mark_no_data_date(iscd, date)
+            logging.info(f"[{iscd}] {date} 무데이터(휴장 등) — 스킵 마킹")
+
+    return query_minute_range(
+        stock_code=iscd,
+        start_date=start_date, start_time=MARKET_OPEN,
+        end_date=end_date,     end_time=MARKET_CLOSE,
+    )

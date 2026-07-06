@@ -29,11 +29,15 @@ Base = declarative_base()
 
 
 class StockMinuteChart(Base):
+    """1분봉 — TimescaleDB 하이퍼테이블((stock_code, ts), ts 파티션 + 압축).
+
+    하이퍼테이블/압축/연속집계(stock_minute_5m) DDL은 SQLAlchemy로 표현되지 않으므로
+    shared/db/stock_minute.py(런타임 create_table)와 db/schema.sql에 raw SQL로 둔다.
+    ts 는 KST 벽시계 기준 TIMESTAMP(무 tz).
+    """
     __tablename__ = "stock_minute_chart"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    stock_code = Column(String(10), nullable=False)
-    trade_date = Column(Date, nullable=False)
-    trade_time = Column(String(6), nullable=False)
+    stock_code = Column(String(10), primary_key=True)
+    ts = Column(DateTime(timezone=False), primary_key=True)  # 봉 시각(KST)
     open_price = Column(BigInteger, nullable=False)
     high_price = Column(BigInteger, nullable=False)
     low_price = Column(BigInteger, nullable=False)
@@ -41,10 +45,6 @@ class StockMinuteChart(Base):
     volume = Column(BigInteger, nullable=False)
     cumul_amount = Column(BigInteger, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    __table_args__ = (
-        UniqueConstraint("stock_code", "trade_date", "trade_time"),
-        Index("idx_smc_code_date", "stock_code", "trade_date"),
-    )
 
 
 class StockMinuteNoData(Base):
