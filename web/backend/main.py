@@ -6,7 +6,7 @@ api 게이트웨이를 중계한다. KIS를 직접 호출하지 않는다.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from web.backend.routers import market_data, live, dashboard, logs
+from web.backend.routers import market_data, live, dashboard, logs, ml
 
 app = FastAPI(
     title="Quant Miner Web Backend",
@@ -26,6 +26,13 @@ app.include_router(market_data.router)  # DB 우선
 app.include_router(live.router)         # 실시간 → api 중계
 app.include_router(dashboard.router)
 app.include_router(logs.router)
+app.include_router(ml.router)          # 설정 주도 가격예측(비동기 잡)
+
+
+@app.on_event("startup")
+def startup():
+    from shared.db.ml_model import create_table
+    create_table()   # 모델 레지스트리 테이블 보장
 
 
 @app.get("/health")

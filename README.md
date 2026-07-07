@@ -12,7 +12,7 @@
 - **수집**: KIS OpenAPI로 분봉·일봉(OHLCV)·투자자·재무 등 데이터를 자동 수집 → DB 적재
 - **서빙**: 웹 프론트에 저장 데이터(DB) + 실시간 데이터(현재가/랭킹/잔고)를 제공
 - **트레이딩**: 전략 기반 자동매매 (스캐폴드 단계)
-- **연구**: 백테스트 / 강화학습 (로컬 전용)
+- **연구**: 설정 주도 가격예측 ML (predict — web/backend ml 라우터가 재사용)
 
 ---
 
@@ -94,7 +94,7 @@ quant-miner/
 │   ├── models/          KIS 요청/응답 DTO
 │   ├── db/              psycopg2 연결 + upsert/query
 │   └── services/        KIS 호출 로직 (quote/chart/market/finance/account)
-├── research/            백테스트/RL (로컬 전용, 배포 제외)
+├── research/            가격예측 ML (predict — web/backend ml 라우터가 재사용)
 ├── db/                  schema.sql · migrations/
 ├── scripts/             수집/점검 CLI
 ├── docker-compose.yml       로컬/서버 빌드용 (db·api·backend·collector·trader)

@@ -28,3 +28,10 @@ export const RANKING_API = {
     FOREIGN:     `${PROXY}/ranking/foreign`,
     INSTITUTION: `${PROXY}/ranking/institution`,
 };
+
+export const ML_API = {
+    FEATURES: `${PROXY}/ml/features`,
+    MODELS:   `${PROXY}/ml/models`,
+    TRAIN:    `${PROXY}/ml/train`,
+    JOB:      (id: string) => `${PROXY}/ml/jobs/${id}`,
+};

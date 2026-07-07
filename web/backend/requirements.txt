@@ -5,3 +5,7 @@ psycopg2-binary==2.9.10
 SQLAlchemy==2.0.51
 fastapi==0.115.12
 uvicorn==0.34.0
+# ML (설정 주도 가격예측 /ml). 실전에선 별도 ml 서비스로 분리 권장.
+numpy
+pandas
+scikit-learn

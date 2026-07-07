@@ -19,10 +19,10 @@ DDL 생성 예:
     Base.metadata.create_all(engine)
 """
 from sqlalchemy import (
-    BigInteger, Boolean, CHAR, Column, Date, DateTime, Index,
+    BigInteger, Boolean, CHAR, Column, Date, DateTime, Index, Integer,
     Numeric, String, Text, UniqueConstraint, func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID, BYTEA
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -172,6 +172,24 @@ class StockHoliday(Base):
     is_open = Column(Boolean)          # 개장 여부
     is_trade_day = Column(Boolean)     # 거래일 여부
     is_settle = Column(Boolean)        # 결제일 여부
+
+
+class MlModel(Base):
+    """학습된 예측 모델 레지스트리 (아티팩트 BYTEA + 메타 JSONB)."""
+    __tablename__ = "ml_model"
+    model_id = Column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    iscd = Column(String(10), nullable=False)
+    target = Column(String(16), nullable=False)      # return | direction
+    horizon = Column(Integer, nullable=False)
+    model_name = Column(String(40), nullable=False)
+    features = Column(JSONB, nullable=False)
+    params = Column(JSONB, nullable=False, server_default="{}")
+    metrics = Column(JSONB, nullable=False)
+    samples = Column(JSONB, nullable=False)
+    artifact = Column(BYTEA, nullable=False)         # joblib 직렬화(scaler+model)
+    note = Column(Text, server_default="")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (Index("idx_ml_model_iscd", "iscd", "created_at"),)
 
 
 class KisToken(Base):

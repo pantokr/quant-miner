@@ -7,6 +7,8 @@ COPY web/backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY shared/ ./shared/
+# /ml 라우터가 research.predict.core 사용
+COPY research/ ./research/
 COPY web/__init__.py ./web/__init__.py
 COPY web/backend/ ./web/backend/
 

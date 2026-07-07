@@ -10,6 +10,23 @@ CREATE TABLE IF NOT EXISTS kis_token (
 	PRIMARY KEY (env)
 );
 
+CREATE TABLE IF NOT EXISTS ml_model (
+	model_id UUID DEFAULT gen_random_uuid() NOT NULL, 
+	iscd VARCHAR(10) NOT NULL, 
+	target VARCHAR(16) NOT NULL, 
+	horizon INTEGER NOT NULL, 
+	model_name VARCHAR(40) NOT NULL, 
+	features JSONB NOT NULL, 
+	params JSONB DEFAULT '{}' NOT NULL, 
+	metrics JSONB NOT NULL, 
+	samples JSONB NOT NULL, 
+	artifact BYTEA NOT NULL, 
+	note TEXT DEFAULT '', 
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT now(), 
+	PRIMARY KEY (model_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ml_model_iscd ON ml_model (iscd, created_at);
+
 CREATE TABLE IF NOT EXISTS stock_credit (
 	id BIGSERIAL NOT NULL, 
 	stock_code VARCHAR(10) NOT NULL, 
@@ -147,10 +164,9 @@ CREATE TABLE IF NOT EXISTS stock_short_sell (
 	UNIQUE (stock_code, trade_date)
 );
 
--- ── TimescaleDB: stock_minute_chart 하이퍼테이블 ──
+-- TimescaleDB: stock_minute_chart 하이퍼테이블
 SELECT create_hypertable('stock_minute_chart','ts', if_not_exists => TRUE);
-ALTER TABLE stock_minute_chart SET (timescaledb.compress,
-    timescaledb.compress_segmentby='stock_code', timescaledb.compress_orderby='ts DESC');
+ALTER TABLE stock_minute_chart SET (timescaledb.compress, timescaledb.compress_segmentby='stock_code', timescaledb.compress_orderby='ts DESC');
 SELECT add_compression_policy('stock_minute_chart', INTERVAL '7 days', if_not_exists => TRUE);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS stock_minute_5m
