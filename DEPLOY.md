@@ -48,7 +48,7 @@ ssh-copy-id -i deploy_key.pub <user>@<server>   # 또는 수동 append
 
 | Secret | 값 | 필수 |
 |---|---|---|
-| `SSH_HOST` | 서버 IP (예: 158.180.79.14) | ✅ |
+| `SSH_HOST` | 서버 IP (예: 168.107.24.190) | ✅ |
 | `SSH_USER` | 접속 계정 (예: ubuntu) | ✅ |
 | `SSH_KEY` | **deploy_key 개인키 전체 내용** | ✅ |
 | `SSH_PORT` | SSH 포트 (기본 22면 생략) | ⬜ |

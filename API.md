@@ -1,7 +1,7 @@
 
 # Quant Miner API 엔드포인트
 
-베이스 URL: `http://158.180.79.14:8000`  
+베이스 URL: `http://168.107.24.190:8000`  
 로컬 URL: `http://127.0.0.1:8000`  
 Swagger UI: `{BASE_URL}/docs`
 
