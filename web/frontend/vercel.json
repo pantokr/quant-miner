@@ -2,7 +2,7 @@
     "rewrites": [
         {
             "source": "/api/proxy/:path*",
-            "destination": "https://quantminer.duckdns.org/:path*"
+            "destination": "https://quant-miner.duckdns.org/:path*"
         }
     ]
 }
