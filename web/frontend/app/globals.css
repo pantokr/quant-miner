@@ -4,10 +4,44 @@
   box-sizing: border-box;
 }
 
+/*
+ * 폰트 스택 — 숫자·영문은 Inter, 한글은 Noto Sans KR.
+ * 한글 폰트를 명시하지 않으면 브라우저가 시스템 폰트로 대체하면서
+ * 한 단어 안에서 굵기·기준선이 어긋나 글자가 삐뚤빼뚤해 보인다.
+ */
+:root {
+  --font-app:
+    var(--font-latin),
+    var(--font-kr),
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
 html,
 body {
   height: 100%;
   width: 100%;
+  font-family: var(--font-app);
+  /* 얇은 획이 뭉개지지 않도록 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * SVG 텍스트(Recharts 축 라벨)는 상속이 끊기는 브라우저가 있어 명시한다.
+ * 축 눈금은 자릿수가 세로로 정렬되어야 읽기 편하므로 고정폭 숫자를 쓴다.
+ */
+svg text {
+  font-family: var(--font-app);
+}
+
+.recharts-cartesian-axis-tick-value,
+.recharts-legend-item-text,
+.recharts-tooltip-wrapper {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 /* DataGrid 재조회 표시 — 표를 덮지 않고 상단에서 흐르는 진행 바 */
