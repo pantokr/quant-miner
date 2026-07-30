@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import { STOCK_API } from "@/lib/api-config";
 import { InvestorItem, StockRankItem } from "@/types/stock";
-import { TOOLTIP_STYLE } from "./constants";
+import { CHART_MARGIN, TOOLTIP_STYLE, compactPrice } from "./constants";
 import { useFetch } from "./useFetch";
 
 interface InvestorResponse {
@@ -32,10 +32,28 @@ export function InvestorTab({ stock }: Props) {
             <Box h="220px">
                 {investors.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={investors.slice(0, 10).reverse()}>
+                        <BarChart data={investors.slice(0, 10).reverse()} margin={CHART_MARGIN}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" opacity={0.1} />
-                            <XAxis dataKey="stck_bsop_date" tickFormatter={v => v.substring(4)} fontSize={9} fontWeight="bold" tick={{ fill: "#94a3b8" }} />
-                            <YAxis fontSize={9} fontWeight="bold" tick={{ fill: "#94a3b8" }} />
+                            <XAxis
+                                dataKey="stck_bsop_date"
+                                tickFormatter={v => `${v.substring(4, 6)}/${v.substring(6, 8)}`}
+                                fontSize={9}
+                                fontWeight="bold"
+                                tick={{ fill: "#94a3b8" }}
+                                tickMargin={8}
+                                height={26}
+                                tickLine={false}
+                            />
+                            <YAxis
+                                fontSize={9}
+                                fontWeight="bold"
+                                tick={{ fill: "#94a3b8" }}
+                                tickFormatter={compactPrice}
+                                width="auto"
+                                tickMargin={6}
+                                tickLine={false}
+                                axisLine={false}
+                            />
                             <Tooltip contentStyle={TOOLTIP_STYLE} />
                             <Bar dataKey="frgn_ntby_qty" name="외국인" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="orgn_ntby_qty" name="기관" fill="#ef4444" radius={[4, 4, 0, 0]} />

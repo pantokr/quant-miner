@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Badge, Box, HStack, Icon, Tabs, Text, VStack } from "@chakra-ui/react";
 import { List, TrendingUp, Users } from "lucide-react";
 import { StockRankItem } from "@/types/stock";
-import { ChartPeriod, PERIOD_LABELS } from "./stock-chart/constants";
+import { ChartPeriod, ChartStyle, PERIOD_LABELS, STYLE_LABELS } from "./stock-chart/constants";
 import { MinuteChart } from "./stock-chart/MinuteChart";
 import { OhlcvChart } from "./stock-chart/OhlcvChart";
 import { OrderbookTab } from "./stock-chart/OrderbookTab";
@@ -16,6 +16,7 @@ interface StockChartDetailProps {
 
 export function StockChartDetail({ stock }: StockChartDetailProps) {
     const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("minute");
+    const [chartStyle, setChartStyle] = useState<ChartStyle>("line");
 
     if (!stock) {
         return (
@@ -65,35 +66,59 @@ export function StockChartDetail({ stock }: StockChartDetailProps) {
                     {/* 탭 헤더 + 기간 스위치 */}
                     <HStack justify="space-between" align="center" mb={2}>
                         <Tabs.List bg="bg.muted" p={1} borderRadius="xl" border="none" w="fit-content">
-                            <Tabs.Trigger value="chart" borderRadius="lg" _selected={{ bg: "bg.panel", boxShadow: "sm", color: "teal.500" }} fontSize="xs" fontWeight="bold" px={3} gap={1}>
+                            <Tabs.Trigger value="chart" borderRadius="lg" _selected={{ bg: "bg.panel", boxShadow: "sm", color: "accent.500" }} fontSize="xs" fontWeight="bold" px={3} gap={1}>
                                 <Icon as={TrendingUp} boxSize="3" />차트
                             </Tabs.Trigger>
-                            <Tabs.Trigger value="orderbook" borderRadius="lg" _selected={{ bg: "bg.panel", boxShadow: "sm", color: "teal.500" }} fontSize="xs" fontWeight="bold" px={3} gap={1}>
+                            <Tabs.Trigger value="orderbook" borderRadius="lg" _selected={{ bg: "bg.panel", boxShadow: "sm", color: "accent.500" }} fontSize="xs" fontWeight="bold" px={3} gap={1}>
                                 <Icon as={List} boxSize="3" />호가
                             </Tabs.Trigger>
-                            <Tabs.Trigger value="investor" borderRadius="lg" _selected={{ bg: "bg.panel", boxShadow: "sm", color: "teal.500" }} fontSize="xs" fontWeight="bold" px={3} gap={1}>
+                            <Tabs.Trigger value="investor" borderRadius="lg" _selected={{ bg: "bg.panel", boxShadow: "sm", color: "accent.500" }} fontSize="xs" fontWeight="bold" px={3} gap={1}>
                                 <Icon as={Users} boxSize="3" />투자자
                             </Tabs.Trigger>
                         </Tabs.List>
 
-                        <HStack gap={1}>
-                            {(["minute", "daily", "monthly", "yearly"] as const).map(p => (
-                                <Box
-                                    key={p}
-                                    as="button"
-                                    px={2.5} py={1}
-                                    borderRadius="md"
-                                    fontSize="xs"
-                                    fontWeight="bold"
-                                    cursor="pointer"
-                                    bg={chartPeriod === p ? "teal.500" : "bg.muted"}
-                                    color={chartPeriod === p ? "white" : "fg.muted"}
-                                    onClick={() => setChartPeriod(p)}
-                                    transition="all 0.15s"
-                                >
-                                    {PERIOD_LABELS[p]}
-                                </Box>
-                            ))}
+                        <HStack gap={3}>
+                            {/* 선/캔들 전환 — 분봉은 봉 폭이 너무 좁아 선만 제공 */}
+                            {chartPeriod !== "minute" && (
+                                <HStack gap={1}>
+                                    {(["line", "candle"] as const).map(s => (
+                                        <Box
+                                            key={s}
+                                            as="button"
+                                            px={2.5} py={1}
+                                            borderRadius="md"
+                                            fontSize="xs"
+                                            fontWeight="bold"
+                                            cursor="pointer"
+                                            bg={chartStyle === s ? "gray.700" : "bg.muted"}
+                                            color={chartStyle === s ? "white" : "fg.muted"}
+                                            onClick={() => setChartStyle(s)}
+                                            transition="all 0.15s"
+                                        >
+                                            {STYLE_LABELS[s]}
+                                        </Box>
+                                    ))}
+                                </HStack>
+                            )}
+                            <HStack gap={1}>
+                                {(["minute", "daily", "monthly", "yearly"] as const).map(p => (
+                                    <Box
+                                        key={p}
+                                        as="button"
+                                        px={2.5} py={1}
+                                        borderRadius="md"
+                                        fontSize="xs"
+                                        fontWeight="bold"
+                                        cursor="pointer"
+                                        bg={chartPeriod === p ? "accent.500" : "bg.muted"}
+                                        color={chartPeriod === p ? "white" : "fg.muted"}
+                                        onClick={() => setChartPeriod(p)}
+                                        transition="all 0.15s"
+                                    >
+                                        {PERIOD_LABELS[p]}
+                                    </Box>
+                                ))}
+                            </HStack>
                         </HStack>
                     </HStack>
 
@@ -101,7 +126,7 @@ export function StockChartDetail({ stock }: StockChartDetailProps) {
                         {chartPeriod === "minute" ? (
                             <MinuteChart stock={stock} color={color} />
                         ) : (
-                            <OhlcvChart stock={stock} period={chartPeriod} color={color} />
+                            <OhlcvChart stock={stock} period={chartPeriod} color={color} style={chartStyle} />
                         )}
                     </Tabs.Content>
 

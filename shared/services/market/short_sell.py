@@ -25,7 +25,7 @@ def get_short_sell(
     header = KisCommonHeader(
         authorization=f"Bearer {token}",
         appkey=APP_KEY, appsecret=APP_SECRET,
-        tr_id="FHPST10010000",
+        tr_id="FHPST04830000",
     )
     req = ShortSellRequest(
         FID_INPUT_ISCD=iscd,
@@ -33,7 +33,7 @@ def get_short_sell(
         FID_INPUT_DATE_2=end_date,
     )
     res = requests.get(
-        f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-short",
+        f"{BASE_URL}/uapi/domestic-stock/v1/quotations/daily-short-sale",
         headers=header.to_dict(),
         params=req.model_dump(),
     )
@@ -44,7 +44,7 @@ def get_short_sell(
     if not result.is_success:
         logging.warning(f"공매도 오류: {result.msg1}")
         return []
-    items = result.output1
+    items = result.output2
     if save and items:
         upsert_short_sell(iscd, [i.model_dump() for i in items])
     return items

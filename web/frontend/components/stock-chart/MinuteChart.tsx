@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { STOCK_API } from "@/lib/api-config";
 import { MinuteChartItem, StockRankItem } from "@/types/stock";
-import { TOOLTIP_STYLE } from "./constants";
+import { AXIS_TICK, CHART_MARGIN, TOOLTIP_STYLE, compactPrice } from "./constants";
 import { computeYDomain, formatTimeNum } from "./utils";
 import { useFetch } from "./useFetch";
 
@@ -57,12 +57,12 @@ export function MinuteChart({ stock, color }: Props) {
         <Box h="300px" w="100%" position="relative">
             {loading && (
                 <Box position="absolute" inset={0} display="flex" justifyContent="center" alignItems="center" bg="bg.panel/50" zIndex={1} backdropFilter="blur(2px)">
-                    <Spinner color="teal.500" />
+                    <Spinner color="accent.500" />
                 </Box>
             )}
             {numericData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={numericData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                    <AreaChart data={numericData} margin={CHART_MARGIN}>
                         <defs>
                             <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor={color} stopOpacity={0.1} />
@@ -76,22 +76,22 @@ export function MinuteChart({ stock, color }: Props) {
                             domain={[X_MIN, X_MAX]}
                             ticks={TIME_TICKS}
                             tickFormatter={formatTimeNum}
-                            fontSize={9}
-                            fontWeight="bold"
                             tickLine={true}
                             axisLine={false}
-                            tick={{ fill: "#94a3b8" }}
+                            tick={AXIS_TICK}
+                            tickMargin={8}
+                            height={28}
                             interval={0}
+                            padding={{ left: 14, right: 14 }}
                         />
                         <YAxis
                             domain={yDomain}
-                            fontSize={9}
-                            fontWeight="bold"
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={v => v.toLocaleString()}
-                            width={56}
-                            tick={{ fill: "#94a3b8" }}
+                            tickFormatter={compactPrice}
+                            width="auto"
+                            tickMargin={6}
+                            tick={AXIS_TICK}
                         />
                         <Tooltip
                             contentStyle={TOOLTIP_STYLE}
@@ -100,13 +100,13 @@ export function MinuteChart({ stock, color }: Props) {
                         />
                         <ReferenceLine
                             x={clampedTime}
-                            stroke="#22d3ee"
+                            stroke="#64748b"
                             strokeWidth={1.5}
                             strokeDasharray="4 4"
                             label={{
                                 value: "현재: " + formatTimeNum(clampedTime),
                                 position: "insideBottom",
-                                fill: "#22d3ee",
+                                fill: "#64748b",
                                 fontSize: 9,
                                 fontWeight: "bold",
                                 offset: 8,

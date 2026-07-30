@@ -1,5 +1,5 @@
 import psycopg2.extras
-from typing import List
+from typing import List, Optional
 from shared.db.connection import get_connection
 
 CREATE_SHORT_SQL = """
@@ -59,20 +59,35 @@ def create_tables() -> None:
         conn.commit()
 
 
-def upsert_short_sell(stock_code: str, rows: List[dict]) -> int:
-    if not rows:
+def _to_date(yyyymmdd: str) -> Optional[str]:
+    s = (yyyymmdd or "").strip()
+    return f"{s[:4]}-{s[4:6]}-{s[6:8]}" if len(s) == 8 else None
+
+
+def _num(value, cast=int):
+    try:
+        return cast(str(value).replace(",", "").strip())
+    except (TypeError, ValueError):
         return 0
-    values = [
-        (
+
+
+def upsert_short_sell(stock_code: str, rows: List[dict]) -> int:
+    """FHPST04830000 output2 기준 (ssts_* 필드)."""
+    values = []
+    for r in rows:
+        trade_date = _to_date(r.get("stck_bsop_date", ""))
+        if not trade_date:
+            continue
+        values.append((
             stock_code,
-            f"{r['stck_bsop_date'][:4]}-{r['stck_bsop_date'][4:6]}-{r['stck_bsop_date'][6:]}",
-            int(r.get('smtn_smvl') or 0),
-            int(r.get('smtn_tr_pbmn') or 0),
-            int(r.get('stck_prpr') or 0),
-            float(r.get('prdy_ctrt') or 0),
-        )
-        for r in rows
-    ]
+            trade_date,
+            _num(r.get("ssts_cntg_qty")),
+            _num(r.get("ssts_tr_pbmn")),
+            _num(r.get("stck_clpr")),
+            _num(r.get("prdy_ctrt"), float),
+        ))
+    if not values:
+        return 0
     with get_connection() as conn:
         with conn.cursor() as cur:
             psycopg2.extras.execute_values(cur, UPSERT_SHORT_SQL, values)
@@ -81,19 +96,22 @@ def upsert_short_sell(stock_code: str, rows: List[dict]) -> int:
 
 
 def upsert_credit(stock_code: str, rows: List[dict]) -> int:
-    if not rows:
-        return 0
-    values = [
-        (
+    """FHPST04760000 output 기준 (deal_date / whol_loan_* 필드)."""
+    values = []
+    for r in rows:
+        trade_date = _to_date(r.get("deal_date", ""))
+        if not trade_date:
+            continue
+        values.append((
             stock_code,
-            f"{r['stck_bsop_date'][:4]}-{r['stck_bsop_date'][4:6]}-{r['stck_bsop_date'][6:]}",
-            int(r.get('crdt_rmnd_qty') or 0),
-            int(r.get('crdt_rmnd_amt') or 0),
-            float(r.get('crdt_rmnd_rate') or 0),
-            int(r.get('stck_prpr') or 0),
-        )
-        for r in rows
-    ]
+            trade_date,
+            _num(r.get("whol_loan_rmnd_stcn")),
+            _num(r.get("whol_loan_rmnd_amt")),
+            _num(r.get("whol_loan_rmnd_rate"), float),
+            _num(r.get("stck_prpr")),
+        ))
+    if not values:
+        return 0
     with get_connection() as conn:
         with conn.cursor() as cur:
             psycopg2.extras.execute_values(cur, UPSERT_CREDIT_SQL, values)

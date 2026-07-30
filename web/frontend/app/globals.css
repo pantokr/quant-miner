@@ -9,3 +9,9 @@ body {
   height: 100%;
   width: 100%;
 }
+
+/* DataGrid 재조회 표시 — 표를 덮지 않고 상단에서 흐르는 진행 바 */
+@keyframes dataGridSweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}

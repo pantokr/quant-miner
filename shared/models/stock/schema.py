@@ -15,6 +15,8 @@ class MinuteChartRow(BaseModel):
     close_price: int
     volume: int
     cumul_amount: int
+    # 체결이 없어 KIS가 봉을 주지 않은 분을 직전 값으로 메운 행 (DB에는 없는 값)
+    is_filled: bool = False
 
 
 # ── 시세 ──────────────────────────────────────────────────
@@ -97,6 +99,14 @@ class FinancePeriodRow(BaseModel):
     data: Dict[str, Any]        # 원본 KIS 응답 필드 전체
 
 
+class StockMasterRow(BaseModel):
+    """종목 마스터 행 (코드 ↔ 종목명 검색용)"""
+    stock_code: str
+    name: str
+    market: str                 # KOSPI | KOSDAQ
+    isin: Optional[str] = None
+
+
 class StockInfoRow(BaseModel):
     stock_code: str
     name: str
@@ -124,9 +134,24 @@ class DividendRow(BaseModel):
 
 
 class EstimateRow(BaseModel):
+    """추정실적 한 기간. 확정 실적과 추정치가 함께 온다(is_estimate로 구분)."""
     stock_code: str
-    period: str                 # 결산년월
-    revenue: Optional[str] = None
-    operating_profit: Optional[str] = None
-    net_income: Optional[str] = None
-    eps: Optional[str] = None
+    period: str                             # 결산년월 YYYYMM
+    period_label: str = ""                  # 원본 표기 ("2026.12E")
+    is_estimate: bool = False
+    analyst: Optional[str] = None
+    opinion: Optional[str] = None
+
+    revenue: Optional[float] = None          # 매출액 (억원)
+    revenue_growth: Optional[float] = None    # 매출액 증감률 (%)
+    operating_profit: Optional[float] = None  # 영업이익 (억원)
+    op_growth: Optional[float] = None         # 영업이익 증감률 (%)
+    net_income: Optional[float] = None        # 당기순이익 (억원)
+    net_growth: Optional[float] = None        # 순이익 증감률 (%)
+    ebitda: Optional[float] = None            # EBITDA (억원)
+    eps: Optional[float] = None               # EPS (원)
+    eps_growth: Optional[float] = None        # EPS 증감률 (%)
+    per: Optional[float] = None               # PER (배)
+    pbr: Optional[float] = None               # PBR (배)
+    roe: Optional[float] = None               # ROE (%)
+    debt_ratio: Optional[float] = None        # 부채비율 (%)

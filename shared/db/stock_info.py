@@ -49,6 +49,31 @@ def create_tables() -> None:
 
 # ── 종목기본정보 ───────────────────────────────────────────
 
+# CTPF1002R/CTPF1604R은 시장구분을 mket_id_cd(STK/KSQ 등)로만 준다.
+_MARKET_BY_ID = {"STK": "KOSPI", "KSQ": "KOSDAQ", "KNX": "KONEX"}
+
+
+def _market_of(raw: Dict[str, Any]) -> str:
+    """시장구분. mket_id_cd 우선, 없으면 채워진 상장일로 판정."""
+    mapped = _MARKET_BY_ID.get(str(raw.get("mket_id_cd", "")).strip())
+    if mapped:
+        return mapped
+    if str(raw.get("kosdaq_mket_lstg_dt", "")).strip():
+        return "KOSDAQ"
+    if str(raw.get("scts_mket_lstg_dt", "")).strip():
+        return "KOSPI"
+    return str(raw.get("mket_id_cd", "")).strip()
+
+
+def _listed_date_of(raw: Dict[str, Any]) -> str:
+    """상장일. 응답에 lstg_dt는 없고 시장별 상장일 필드로 나뉘어 온다."""
+    for key in ("scts_mket_lstg_dt", "kosdaq_mket_lstg_dt", "frbd_mket_lstg_dt"):
+        value = str(raw.get(key, "")).strip()
+        if value and value != "00000000":
+            return value
+    return ""
+
+
 def upsert_stock_info(stock_code: str, raw: Dict[str, Any]) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -72,10 +97,10 @@ def upsert_stock_info(stock_code: str, raw: Dict[str, Any]) -> None:
                 (
                     stock_code,
                     raw.get("prdt_abrv_name") or raw.get("prdt_eng_name", ""),
-                    raw.get("mket_id_cd", ""),
-                    raw.get("scrt_grp_cls_code", ""),
-                    _to_int(raw.get("lstg_stqty")),
-                    _to_date(raw.get("lstg_dt")),
+                    _market_of(raw),
+                    raw.get("idx_bztp_mcls_cd_name") or raw.get("std_idst_clsf_cd_name", ""),
+                    _to_int(raw.get("lstg_stqt")),
+                    _to_date(_listed_date_of(raw)),
                     raw.get("std_pdno", ""),
                     raw.get("setl_mmdd", ""),
                     json.dumps(raw, ensure_ascii=False),
@@ -212,7 +237,12 @@ def _to_int(val) -> Optional[int]:
 
 
 def _to_date(val: Optional[str]) -> Optional[str]:
-    """YYYYMMDD → YYYY-MM-DD (PostgreSQL DATE 형식)"""
-    if not val or len(val) < 8:
+    """YYYYMMDD → YYYY-MM-DD (PostgreSQL DATE 형식).
+
+    배당 TR은 같은 응답 안에서도 "20260630"과 "2026/05/15"를 섞어 내려주므로
+    숫자만 추려 낸 뒤 8자리인 경우에만 변환한다.
+    """
+    digits = "".join(ch for ch in str(val or "") if ch.isdigit())
+    if len(digits) != 8:
         return None
-    return f"{val[:4]}-{val[4:6]}-{val[6:8]}"
+    return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"

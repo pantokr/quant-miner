@@ -12,6 +12,7 @@ from shared.models.stock.schema import MinuteChartRow, OhlcvRow, InvestorRow
 from shared.db.stock_minute import query_minute_range
 from shared.db.stock_ohlcv import query_ohlcv
 from shared.db.stock_investor import query_investor_trend
+from shared.services.chart.gapfill import fill_minute_gaps
 from web.backend.gateway import proxy_get
 
 router = APIRouter(tags=["market-data (DB)"])
@@ -21,11 +22,17 @@ MARKET_CLOSE = "153000"
 
 
 @router.get("/stock/{iscd}/minute-chart", response_model=List[MinuteChartRow])
-def minute_chart(iscd: str, date: str = Query(..., examples=["20260102"])):
+def minute_chart(
+    iscd: str,
+    date: str = Query(..., examples=["20260102"]),
+    fill: bool = Query(True, description="체결 없는 분을 직전 값으로 메워 391분을 채움"),
+):
+    """일일 분봉 (대시보드 차트용). 기본적으로 빈 시간대를 메워 09:00~15:30을 채운다."""
     rows = query_minute_range(iscd, date, MARKET_OPEN, date, MARKET_CLOSE)
-    if rows:
-        return rows
-    return proxy_get(f"/stock/{iscd}/minute-chart", {"date": date})
+    if not rows:
+        # DB에 없으면 게이트웨이가 수집·적재한 결과를 받는다(그쪽에서 이미 메워서 준다)
+        return proxy_get(f"/stock/{iscd}/minute-chart", {"date": date, "fill": fill})
+    return fill_minute_gaps(rows, trade_date=date) if fill else rows
 
 
 @router.get("/stock/{iscd}/minute-chart/range", response_model=List[MinuteChartRow])

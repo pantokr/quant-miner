@@ -485,8 +485,15 @@ class InvestorItem(BaseModel):
 
 
 class InvestorResponse(KisApiResponse):
+    # FHKST01010900은 일자별 매매동향을 output(단수)으로 내려준다.
+    # output1/output2는 과거 스펙 호환용으로 남겨 둔다.
+    output: List[InvestorItem] = []
     output1: dict = {}
     output2: List[InvestorItem] = []
+
+    @property
+    def items(self) -> List[InvestorItem]:
+        return self.output or self.output2
 
 
 # ── 호가/예상체결 (가공 DTO, 오리지날 미러 아님) ──────────────
@@ -513,32 +520,44 @@ class OrderBookResponse(KisApiResponse):
 # DB(db/stock_short.py)가 smtn_smvl / smtn_tr_pbmn 을 적재.
 
 class ShortSellItem(BaseModel):
-    """공매도 아이템"""
-    stck_bsop_date: str = ""   # 영업일자
-    smtn_smvl: str = ""        # 공매도거래량
-    smtn_tr_pbmn: str = ""     # 공매도거래대금
-    stck_prpr: str = ""        # 현재가
-    prdy_ctrt: str = ""        # 전일대비율
+    """공매도 아이템 (FHPST04830000 daily-short-sale output2)"""
+    stck_bsop_date: str = ""            # 영업일자
+    stck_clpr: str = ""                 # 종가
+    prdy_ctrt: str = ""                 # 전일대비율
+    acml_vol: str = ""                  # 누적거래량
+    ssts_cntg_qty: str = ""             # 공매도 체결수량
+    ssts_vol_rlim: str = ""             # 공매도 거래량 비중(%)
+    ssts_tr_pbmn: str = ""              # 공매도 거래대금
+    ssts_tr_pbmn_rlim: str = ""         # 공매도 거래대금 비중(%)
+    acml_ssts_cntg_qty: str = ""        # 누적 공매도 수량
+    avrg_prc: str = ""                  # 공매도 평균가
 
 
 class ShortSellResponse(KisApiResponse):
-    output1: List[ShortSellItem] = []
+    output1: dict = {}                  # 현재가 요약
+    output2: List[ShortSellItem] = []   # 일자별 공매도
 
 
 # ── 신용잔고 (FHKST01650300, 프로젝트 전용 — 오리지날 미매칭) ─
 # DB(db/stock_short.py)가 crdt_rmnd_qty / crdt_rmnd_amt / crdt_rmnd_rate 를 적재.
 
 class CreditItem(BaseModel):
-    """신용잔고 아이템"""
-    stck_bsop_date: str = ""    # 영업일자
-    crdt_rmnd_qty: str = ""     # 신용잔고수량
-    crdt_rmnd_amt: str = ""     # 신용잔고금액
-    crdt_rmnd_rate: str = ""    # 신용잔고율
-    stck_prpr: str = ""         # 현재가
+    """신용잔고 아이템 (FHPST04760000 daily-credit-balance output)"""
+    deal_date: str = ""                 # 매매일자
+    stck_prpr: str = ""                 # 종가
+    prdy_ctrt: str = ""                 # 전일대비율
+    acml_vol: str = ""                  # 누적거래량
+    whol_loan_new_stcn: str = ""        # 융자 신규 주수
+    whol_loan_rdmp_stcn: str = ""       # 융자 상환 주수
+    whol_loan_rmnd_stcn: str = ""       # 융자 잔고 주수
+    whol_loan_rmnd_amt: str = ""        # 융자 잔고 금액
+    whol_loan_rmnd_rate: str = ""       # 융자 잔고 비율(%)
+    whol_stln_rmnd_stcn: str = ""       # 대주 잔고 주수
+    whol_stln_rmnd_amt: str = ""        # 대주 잔고 금액
 
 
 class CreditResponse(KisApiResponse):
-    output1: List[CreditItem] = []
+    output: List[CreditItem] = []
 
 
 # ── 재무/기업정보 ──────────────────────────────────────────

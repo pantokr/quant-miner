@@ -50,7 +50,7 @@ export function DataTable() {
                   {trade.side}
                 </Badge>
               </Table.Cell>
-              <Table.Cell textAlign="right" fontSize="sm" fontWeight="600" color={trade.pnl >= 0 ? "teal.600" : "red.500"}>
+              <Table.Cell textAlign="right" fontSize="sm" fontWeight="600" color={trade.pnl >= 0 ? "accent.600" : "red.500"}>
                 {formatKRW(trade.pnl)}
               </Table.Cell>
               <Table.Cell>

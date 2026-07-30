@@ -25,17 +25,20 @@ def get_credit(
     header = KisCommonHeader(
         authorization=f"Bearer {token}",
         appkey=APP_KEY, appsecret=APP_SECRET,
-        tr_id="FHKST01650300",
+        tr_id="FHPST04760000",
     )
-    req = CreditRequest(
-        FID_INPUT_ISCD=iscd,
-        FID_INPUT_DATE_1=start_date,
-        FID_INPUT_DATE_2=end_date,
-    )
+    # 이 TR은 기준일(FID_INPUT_DATE_1) 하나만 받고 그 이전 30영업일을 돌려준다.
+    # FID_COND_SCR_DIV_CODE(화면번호)가 없으면 "INPUT FIELD NOT FOUND"로 거부된다.
     res = requests.get(
-        f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-credit-by-company",
+        f"{BASE_URL}/uapi/domestic-stock/v1/quotations/daily-credit-balance",
         headers=header.to_dict(),
-        params=req.model_dump(),
+        params={
+            "FID_COND_MRKT_DIV_CODE": "J",
+            "FID_COND_SCR_DIV_CODE": "20476",
+            "FID_INPUT_ISCD": iscd,
+            "FID_INPUT_DATE_1": end_date,
+            "FID_DIV_CLS_CODE": "0",
+        },
     )
     if res.status_code != 200:
         logging.warning(f"신용잔고 API 오류: {res.status_code}")
@@ -44,7 +47,8 @@ def get_credit(
     if not result.is_success:
         logging.warning(f"신용잔고 오류: {result.msg1}")
         return []
-    items = result.output1
+    # 응답이 기준일 이전 30영업일 고정이므로 요청 구간으로 한 번 더 거른다.
+    items = [i for i in result.output if start_date <= i.deal_date <= end_date]
     if save and items:
         upsert_credit(iscd, [i.model_dump() for i in items])
     return items

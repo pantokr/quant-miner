@@ -5,6 +5,7 @@ from shared.models.stock import (
     MinuteChartRow, OhlcvRow, CurrentPrice, OrderBookRow, InvestorRow,
 )
 from shared.services.chart.minute import get_minute_chart, get_minute_chart_range
+from shared.services.chart.gapfill import fill_minute_gaps
 from shared.services.quote.ohlcv import get_period_ohlcv, get_ohlcv_all
 from shared.services.quote.current import get_current_price
 from shared.services.quote.orderbook import get_orderbook
@@ -20,6 +21,7 @@ def minute_chart(
     iscd: str,
     date: str = Query(..., examples=["20260102"],
                       description="조회 일자 'YYYYMMDD'"),
+    fill: bool = Query(True, description="체결 없는 분을 직전 값으로 메워 391분을 채움"),
 ):
     """분봉 조회 (당일 09:00:00 ~ 15:30:00 전체 데이터)"""
     try:
@@ -28,7 +30,7 @@ def minute_chart(
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
-    return rows
+    return fill_minute_gaps(rows, trade_date=date) if fill else rows
 
 
 @router.get("/{iscd}/minute-chart/range", response_model=List[MinuteChartRow])
@@ -133,12 +135,20 @@ def investor_trend(
 ):
     """투자자별 매매동향 (모의환경에서는 빈 배열)"""
     items = get_investor_trend(iscd, save=save)
+
+    def n(value) -> int:
+        # 장중 미집계 행은 빈 문자열로 온다
+        try:
+            return int(str(value).replace(",", "").strip())
+        except (TypeError, ValueError):
+            return 0
+
     return [
         InvestorRow(
             date=i.stck_bsop_date,
-            individual_net=int(i.prsn_ntby_qty),
-            foreign_net=int(i.frgn_ntby_qty),
-            institution_net=int(i.orgn_ntby_qty),
+            individual_net=n(i.prsn_ntby_qty),
+            foreign_net=n(i.frgn_ntby_qty),
+            institution_net=n(i.orgn_ntby_qty),
         )
         for i in items
     ]

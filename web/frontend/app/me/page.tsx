@@ -96,7 +96,7 @@ export default function MePage() {
             <Avatar.Root size="2xl">
               <Avatar.Fallback
                 name="Pantokr"
-                bg="teal.500"
+                bg="accent.500"
                 color="white"
                 fontSize="2xl"
                 fontWeight="bold"
@@ -113,7 +113,7 @@ export default function MePage() {
             </VStack>
 
             <HStack gap={2} flexWrap="wrap" justify="center">
-              <Badge colorPalette="teal" variant="subtle" size="sm">
+              <Badge colorPalette="accent" variant="subtle" size="sm">
                 퀀트 트레이더
               </Badge>
               <Badge colorPalette="blue" variant="subtle" size="sm">
@@ -179,7 +179,7 @@ export default function MePage() {
                     <Text fontSize="xs" color="gray.500" fontWeight="600">
                       {s.label}
                     </Text>
-                    <Icon size={15} color={s.positive ? "#0d9488" : "#ef4444"} />
+                    <Icon size={15} color={s.positive ? "#334155" : "#ef4444"} />
                   </HStack>
                   <Text
                     fontSize="xl"
@@ -206,7 +206,7 @@ export default function MePage() {
             p={5}
           >
             <HStack gap={2} mb={4}>
-              <Activity size={16} color="#0d9488" />
+              <Activity size={16} color="#334155" />
               <Text fontWeight="600" fontSize="sm" color="gray.700">
                 전략 현황
               </Text>
@@ -232,7 +232,7 @@ export default function MePage() {
                     </Text>
                   </VStack>
                   <HStack gap={2}>
-                    <Text fontSize="sm" fontWeight="700" color="teal.600">
+                    <Text fontSize="sm" fontWeight="700" color="accent.600">
                       {s.returns}
                     </Text>
                     <Badge

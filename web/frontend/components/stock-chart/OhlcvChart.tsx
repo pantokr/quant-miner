@@ -5,6 +5,8 @@ import { Box, HStack, Spinner, Text, VStack } from "@chakra-ui/react";
 import {
     Area,
     AreaChart,
+    Bar,
+    BarChart,
     CartesianGrid,
     ResponsiveContainer,
     Tooltip,
@@ -13,7 +15,11 @@ import {
 } from "recharts";
 import { STOCK_API } from "@/lib/api-config";
 import { OHLCVItem, StockRankItem } from "@/types/stock";
+import { CandleDatum, CandleShape, CandleTooltip } from "@/components/charts/Candle";
 import {
+    AXIS_TICK,
+    CHART_MARGIN,
+    ChartStyle,
     FIXED_WINDOW,
     GRAD_ID,
     MAX_TICKS,
@@ -21,6 +27,7 @@ import {
     PAN_STEP,
     PERIOD_LABELS,
     TOOLTIP_STYLE,
+    compactPrice,
 } from "./constants";
 import {
     computeOhlcvTicks,
@@ -36,9 +43,10 @@ interface Props {
     stock: StockRankItem;
     period: OhlcvPeriod;
     color: string;
+    style: ChartStyle;
 }
 
-export function OhlcvChart({ stock, period, color }: Props) {
+export function OhlcvChart({ stock, period, color, style }: Props) {
     const periodSuffix = period === "daily" ? "" : period === "monthly" ? "?period=M" : "?period=Y";
     const url = `${STOCK_API.OHLCV_ALL(stock.stock_code)}${periodSuffix}`;
     const { data, loading } = useFetch<OHLCVItem[]>(url, EMPTY_OHLCV);
@@ -93,6 +101,19 @@ export function OhlcvChart({ stock, period, color }: Props) {
     const fmtDate = (date: string, showYear: boolean) => formatOhlcvDate(date, period, showYear);
     const visibleTicks = computeOhlcvTicks(visible, MAX_TICKS[period], fmtDate);
     const yDomain = computeYDomain(visible.map(d => d.close));
+
+    // 캔들은 저가~고가 전체가 들어와야 하므로 도메인을 따로 잡는다
+    const candleData: CandleDatum[] = visible.map(d => ({
+        date: d.date,
+        open: d.open, high: d.high, low: d.low, close: d.close,
+        _range: [d.low, d.high],
+    }));
+    const candleDomain = candleData.length
+        ? computeYDomain([
+            ...candleData.map(d => d.low),
+            ...candleData.map(d => d.high),
+        ])
+        : yDomain;
 
     const rangeLabel = visible.length >= 2
         ? `${formatOhlcvRangeLabel(visible[0].date, period)} ~ ${formatOhlcvRangeLabel(visible[visible.length - 1].date, period)}`
@@ -159,56 +180,97 @@ export function OhlcvChart({ stock, period, color }: Props) {
             >
                 {loading && (
                     <Box position="absolute" inset={0} display="flex" justifyContent="center" alignItems="center" bg="bg.panel/50" zIndex={1} backdropFilter="blur(2px)">
-                        <Spinner color="teal.500" />
+                        <Spinner color="accent.500" />
                     </Box>
                 )}
                 {visible.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={visible} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id={GRAD_ID[period]} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={color} stopOpacity={0.1} />
-                                    <stop offset="95%" stopColor={color} stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" opacity={0.1} />
-                            <XAxis
-                                dataKey="date"
-                                ticks={visibleTicks.ticks}
-                                tickFormatter={v => visibleTicks.labelMap[v] ?? v}
-                                fontSize={9}
-                                fontWeight="bold"
-                                tickLine={false}
-                                axisLine={false}
-                                tick={{ fill: "#94a3b8" }}
-                                interval={0}
-                            />
-                            <YAxis
-                                domain={yDomain}
-                                fontSize={9}
-                                fontWeight="bold"
-                                tickLine={false}
-                                axisLine={false}
-                                tickFormatter={v => v.toLocaleString()}
-                                width={56}
-                                tick={{ fill: "#94a3b8" }}
-                            />
-                            <Tooltip
-                                contentStyle={TOOLTIP_STYLE}
-                                labelFormatter={v => formatOhlcvRangeLabel(String(v), period)}
-                                formatter={(v: any) => [parseInt(v).toLocaleString(), "종가"]}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="close"
-                                stroke={color}
-                                strokeWidth={3}
-                                fillOpacity={1}
-                                fill={`url(#${GRAD_ID[period]})`}
-                                dot={false}
-                                isAnimationActive={false}
-                            />
-                        </AreaChart>
+                        {style === "candle" ? (
+                            <BarChart data={candleData} margin={CHART_MARGIN} barCategoryGap="18%">
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" opacity={0.1} />
+                                <XAxis
+                                    dataKey="date"
+                                    ticks={visibleTicks.ticks}
+                                    tickFormatter={v => visibleTicks.labelMap[v] ?? v}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tick={AXIS_TICK}
+                                    tickMargin={8}
+                                    height={28}
+                                    interval={0}
+                                />
+                                <YAxis
+                                    domain={candleDomain}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={compactPrice}
+                                    width="auto"
+                                    tickMargin={6}
+                                    tick={AXIS_TICK}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: "#94a3b8", opacity: 0.15 }}
+                                    content={(p) => (
+                                        <CandleTooltip
+                                            active={p.active}
+                                            payload={p.payload}
+                                            label={p.label}
+                                            labelFormatter={v => formatOhlcvRangeLabel(String(v), period)}
+                                            surface="var(--chakra-colors-bg-panel)"
+                                            grid="var(--chakra-colors-border-subtle)"
+                                            text="var(--chakra-colors-fg)"
+                                        />
+                                    )}
+                                />
+                                <Bar dataKey="_range" shape={<CandleShape />} isAnimationActive={false} />
+                            </BarChart>
+                        ) : (
+                            <AreaChart data={visible} margin={CHART_MARGIN}>
+                                <defs>
+                                    <linearGradient id={GRAD_ID[period]} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={color} stopOpacity={0.1} />
+                                        <stop offset="95%" stopColor={color} stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" opacity={0.1} />
+                                <XAxis
+                                    dataKey="date"
+                                    ticks={visibleTicks.ticks}
+                                    tickFormatter={v => visibleTicks.labelMap[v] ?? v}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tick={AXIS_TICK}
+                                    tickMargin={8}
+                                    height={28}
+                                    interval={0}
+                                    padding={{ left: 14, right: 14 }}
+                                />
+                                <YAxis
+                                    domain={yDomain}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={compactPrice}
+                                    width="auto"
+                                    tickMargin={6}
+                                    tick={AXIS_TICK}
+                                />
+                                <Tooltip
+                                    contentStyle={TOOLTIP_STYLE}
+                                    labelFormatter={v => formatOhlcvRangeLabel(String(v), period)}
+                                    formatter={(v: any) => [parseInt(v).toLocaleString(), "종가"]}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="close"
+                                    stroke={color}
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill={`url(#${GRAD_ID[period]})`}
+                                    dot={false}
+                                    isAnimationActive={false}
+                                />
+                            </AreaChart>
+                        )}
                     </ResponsiveContainer>
                 ) : (
                     <Box h="full" display="flex" justifyContent="center" alignItems="center">

@@ -1,11 +1,12 @@
 "use client"
 
-import { ChakraProvider, defaultSystem, Box } from "@chakra-ui/react"
+import { ChakraProvider, Box } from "@chakra-ui/react"
 import { ThemeProvider as NextThemesProvider } from "next-themes"
+import { system } from "@/lib/theme"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ChakraProvider value={defaultSystem}>
+    <ChakraProvider value={system}>
       <NextThemesProvider
         attribute="class"
         defaultTheme="system"

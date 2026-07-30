@@ -20,9 +20,11 @@ CREATE INDEX IF NOT EXISTS idx_sf_code_type
     ON stock_finance (stock_code, finance_type, period_type);
 """
 
+# execute_values는 VALUES 뒤에 %s 하나만 두고 거기에 튜플 목록을 펼쳐 넣는다.
+# 컬럼 수만큼 %s를 쓰면 "more than one '%s' placeholder" 오류가 난다.
 UPSERT_SQL = """
 INSERT INTO stock_finance (stock_code, finance_type, period_type, period, data)
-VALUES (%s, %s, %s, %s, %s)
+VALUES %s
 ON CONFLICT (stock_code, finance_type, period_type, period) DO UPDATE SET
     data       = EXCLUDED.data,
     updated_at = NOW();

@@ -44,8 +44,8 @@ export function RevenueChart() {
         <AreaChart data={revenueData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
           <defs>
             <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#0d9488" stopOpacity={0.15} />
-              <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
+              <stop offset="5%" stopColor="#334155" stopOpacity={0.15} />
+              <stop offset="95%" stopColor="#334155" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -58,7 +58,7 @@ export function RevenueChart() {
           <Area
             type="monotone"
             dataKey="revenue"
-            stroke="#0d9488"
+            stroke="#334155"
             strokeWidth={2}
             fill="url(#revenueGradient)"
           />
@@ -83,7 +83,7 @@ export function StrategyChart() {
             formatter={(value) => [`${value}%`, "수익률"]}
             contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "13px" }}
           />
-          <Bar dataKey="returns" fill="#0d9488" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="returns" fill="#334155" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </Box>

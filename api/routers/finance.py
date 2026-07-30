@@ -24,59 +24,6 @@ _FINANCE_TYPES = [
 ]
 
 
-# ── 재무 데이터 ────────────────────────────────────────────
-
-@router.get("/{iscd}/{finance_type}", response_model=List[FinancePeriodRow])
-def get_finance_data(
-    iscd: str,
-    finance_type: str,
-    period_type: str = Query("A", description="A:연간 Q:분기"),
-    save: bool = Query(True, description="DB 저장 여부"),
-    from_db: bool = Query(False, description="True 시 API 호출 없이 DB에서만 반환"),
-):
-    """
-    재무 데이터 조회 및 DB 적재
-
-    finance_type: balance_sheet | income_statement | financial_ratio |
-                  profit_ratio | stability_ratio | growth_ratio
-    """
-    if finance_type not in _FINANCE_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"유효하지 않은 finance_type. 가능한 값: {_FINANCE_TYPES}",
-        )
-
-    if from_db:
-        rows = get_finance_from_db(iscd, finance_type, period_type)
-        return [
-            FinancePeriodRow(
-                stock_code=r["stock_code"],
-                period_type=r["period_type"],
-                period=r["period"],
-                data=r["data"],
-            )
-            for r in rows
-        ]
-
-    try:
-        rows = get_finance(iscd, finance_type, period_type, save=save)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
-
-    if not rows:
-        raise HTTPException(status_code=404, detail="데이터 없음")
-
-    return [
-        FinancePeriodRow(
-            stock_code=iscd,
-            period_type=period_type,
-            period=r.get("stac_yymm", ""),
-            data=r,
-        )
-        for r in rows
-    ]
-
-
 # ── 종목기본정보 ───────────────────────────────────────────
 
 @router.get("/{iscd}/info/basic", response_model=Dict[str, Any])
@@ -93,7 +40,12 @@ def stock_basic_info(
             raise HTTPException(status_code=404, detail="DB에 데이터 없음")
         return data
 
-    data = get_stock_info_api(iscd, prdt_type_cd=prdt_type_cd, save=save)
+    # 주식기본조회(CTPF1002R)는 모의투자 도메인에서 500을 반환한다.
+    # 예외가 그대로 새어 나가면 클라이언트가 원인을 알 수 없으므로 502로 감싼다.
+    try:
+        data = get_stock_info_api(iscd, prdt_type_cd=prdt_type_cd, save=save)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"KIS 주식기본조회 실패: {e}")
     if not data:
         raise HTTPException(status_code=502, detail="KIS API 응답 없음")
     return data
@@ -174,36 +126,91 @@ def dividend(
 
 # ── 추정실적 ───────────────────────────────────────────────
 
+_ESTIMATE_FIELDS = (
+    "revenue", "revenue_growth", "operating_profit", "op_growth",
+    "net_income", "net_growth", "ebitda", "eps", "eps_growth",
+    "per", "pbr", "roe", "debt_ratio",
+)
+
+
+def _estimate_row(iscd: str, r: Dict[str, Any]) -> "EstimateRow":
+    return EstimateRow(
+        stock_code=iscd,
+        period=r.get("stac_yymm", ""),
+        period_label=r.get("period_label", ""),
+        is_estimate=bool(r.get("is_estimate")),
+        analyst=r.get("analyst"),
+        opinion=r.get("opinion"),
+        **{k: r.get(k) for k in _ESTIMATE_FIELDS},
+    )
+
+
 @router.get("/{iscd}/estimate", response_model=List[EstimateRow])
 def estimate_perform(
     iscd: str,
     save: bool = Query(True),
     from_db: bool = Query(False),
 ):
-    """추정실적 조회 (컨센서스)"""
+    """추정실적 조회 (컨센서스 — 확정 실적 + 추정치)"""
     if from_db:
-        rows = get_estimate_db(iscd)
-        return [
-            EstimateRow(
-                stock_code=r["stock_code"],
-                period=r["period"],
-                **{k: v for k, v in r.get("data", {}).items()
-                   if k in ("sale_account", "bsop_prti", "thtr_ntin", "eps")},
-            )
-            for r in rows
-        ]
+        return [_estimate_row(iscd, r.get("data", {})) for r in get_estimate_db(iscd)]
 
     rows = get_estimate_perform(iscd, save=save)
     if not rows:
         raise HTTPException(status_code=404, detail="추정실적 데이터 없음")
+    return [_estimate_row(iscd, r) for r in rows]
+
+
+# ── 재무 데이터 ────────────────────────────────────────────
+# ⚠ 경로가 `/{iscd}/{finance_type}` 로 넓어 위의 구체적 경로(dividend·estimate·
+#   market/*)를 모두 먹어버린다. FastAPI는 선언 순서대로 매칭하므로 반드시 맨 끝에 둘 것.
+
+@router.get("/{iscd}/{finance_type}", response_model=List[FinancePeriodRow])
+def get_finance_data(
+    iscd: str,
+    finance_type: str,
+    period_type: str = Query("A", description="A:연간 Q:분기"),
+    save: bool = Query(True, description="DB 저장 여부"),
+    from_db: bool = Query(False, description="True 시 API 호출 없이 DB에서만 반환"),
+):
+    """
+    재무 데이터 조회 및 DB 적재
+
+    finance_type: balance_sheet | income_statement | financial_ratio |
+                  profit_ratio | stability_ratio | growth_ratio
+    """
+    if finance_type not in _FINANCE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"유효하지 않은 finance_type. 가능한 값: {_FINANCE_TYPES}",
+        )
+
+    if from_db:
+        rows = get_finance_from_db(iscd, finance_type, period_type)
+        return [
+            FinancePeriodRow(
+                stock_code=r["stock_code"],
+                period_type=r["period_type"],
+                period=r["period"],
+                data=r["data"],
+            )
+            for r in rows
+        ]
+
+    try:
+        rows = get_finance(iscd, finance_type, period_type, save=save)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    if not rows:
+        raise HTTPException(status_code=404, detail="데이터 없음")
+
     return [
-        EstimateRow(
+        FinancePeriodRow(
             stock_code=iscd,
+            period_type=period_type,
             period=r.get("stac_yymm", ""),
-            revenue=r.get("sale_account"),
-            operating_profit=r.get("bsop_prti"),
-            net_income=r.get("thtr_ntin"),
-            eps=r.get("eps"),
+            data=r,
         )
         for r in rows
     ]

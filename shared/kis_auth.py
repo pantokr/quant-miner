@@ -25,6 +25,14 @@ _AUTH_HEADERS = {
 
 _EXPIRY_BUFFER = timedelta(minutes=5)
 
+# 일부 TR(CTPF1002R 종목기본조회, CTCA0903R 영업일조회 등)은 모의투자 도메인에서
+# "모의투자 TR 이 아닙니다"(EGW02006)로 거부된다. 이런 TR은 KIS_ENV와 무관하게
+# 실전 도메인으로 호출해야 하므로, 도메인별 토큰을 따로 캐시한다.
+REAL_BASE_URL = "https://openapi.koreainvestment.com:9443"
+DEMO_BASE_URL = "https://openapivts.koreainvestment.com:29443"
+
+_BASE_URL_BY_ENV = {"real": REAL_BASE_URL, "demo": DEMO_BASE_URL}
+
 
 # ── 토큰 발급/해지/WS ──────────────────────────────────────
 
@@ -79,26 +87,40 @@ def get_ws_token(appkey: str, appsecret: str, base_url: str) -> Optional[str]:
 
 # ── 유효 토큰 (DB 캐시 우선, 만료 5분 전 재발급) ────────────
 
-def get_valid_token() -> Optional[str]:
+def get_valid_token_for(env: str) -> Optional[str]:
     """
-    유효한 토큰 반환.
+    지정한 환경("real" | "demo")의 유효 토큰 반환.
     DB 캐시 우선, 만료 5분 전이면 재발급.
+
+    KIS는 토큰 발급을 1분당 1회로 제한하므로 도메인별로 캐시를 나눠 둔다.
     """
-    cached = load_token(ENV_DV)
+    base_url = _BASE_URL_BY_ENV.get(env, DEMO_BASE_URL)
+
+    cached = load_token(env)
     if cached:
         expires_at = cached["expires_at"]
         # psycopg2는 TIMESTAMPTZ를 aware datetime으로 반환
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         if datetime.now(tz=timezone.utc) < expires_at - _EXPIRY_BUFFER:
-            logging.debug("DB 캐시 토큰 사용")
+            logging.debug(f"DB 캐시 토큰 사용 ({env})")
             return cached["access_token"]
-        logging.info("토큰 만료 임박 — 재발급")
+        logging.info(f"토큰 만료 임박 — 재발급 ({env})")
 
-    resp = _fetch_token_response(APP_KEY, APP_SECRET, BASE_URL)
+    resp = _fetch_token_response(APP_KEY, APP_SECRET, base_url)
     if not resp:
         return None
 
-    save_token(ENV_DV, resp.access_token, resp.access_token_token_expired)
-    logging.info(f"토큰 발급 완료 (만료: {resp.access_token_token_expired})")
+    save_token(env, resp.access_token, resp.access_token_token_expired)
+    logging.info(f"토큰 발급 완료 ({env}, 만료: {resp.access_token_token_expired})")
     return resp.access_token
+
+
+def get_valid_token() -> Optional[str]:
+    """KIS_ENV 환경의 유효 토큰."""
+    return get_valid_token_for(ENV_DV)
+
+
+def get_real_token() -> Optional[str]:
+    """실전 전용 TR을 위한 실전 도메인 토큰 (KIS_ENV가 demo여도 실전으로 발급)."""
+    return get_valid_token_for("real")

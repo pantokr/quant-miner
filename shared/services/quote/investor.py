@@ -32,7 +32,8 @@ def get_investor_trend(iscd: str, access_token: str = None, save: bool = False) 
     if not result.is_success:
         logging.error(f"투자자동향 오류: {result.msg1}")
         return []
-    items = result.output2
+    # 당일 행은 장중 미집계라 순매수 필드가 빈 문자열로 온다 — 값이 있는 행만 취한다.
+    items = [i for i in result.items if str(i.prsn_ntby_qty).strip()]
     if save and items:
         upsert_investor_trend(iscd, [i.model_dump() for i in items])
     return items

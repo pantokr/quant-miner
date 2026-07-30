@@ -35,13 +35,13 @@ export default function AccountPage() {
     if (loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" h="100vh" bg="bg.main">
-                <Spinner size="xl" color="teal.500" />
+                <Spinner size="xl" color="accent.500" />
             </Box>
         );
     }
 
     return (
-        <Box p={{ base: 6, lg: 10 }} bg="bg.main" minH="100vh">
+        <Box p={{ base: 6, lg: 10 }} bg="bg.main" minH="100%">
             <VStack align="start" mb={10} gap={2}>
                 <Heading size="2xl" fontWeight="900" color="fg" letterSpacing="tight">나의 계좌</Heading>
                 <Text fontSize="md" fontWeight="medium" color="fg.subtle">실시간 자산 포트폴리오 및 주문 체결 내역</Text>
@@ -51,21 +51,21 @@ export default function AccountPage() {
                 <SimpleGrid columns={{ base: 1, md: 3 }} gap={6} mb={10}>
                     <Box bg="bg.panel" p={8} borderRadius="2xl" border="1px solid" borderColor="border.subtle" boxShadow="xs" position="relative" overflow="hidden">
                         <Box position="absolute" top={-2} right={-2} opacity={0.05}>
-                            <Icon as={Wallet} boxSize="24" color="teal.500" />
+                            <Icon as={Wallet} boxSize="24" color="accent.500" />
                         </Box>
                         <Text fontSize="xs" fontWeight="black" color="fg.muted" mb={4} letterSpacing="widest">DEPOSIT</Text>
                         <Text fontSize="3xl" fontWeight="900" color="fg">₩{balance.summary.deposit.toLocaleString()}</Text>
                     </Box>
                     <Box bg="bg.panel" p={8} borderRadius="2xl" border="1px solid" borderColor="border.subtle" boxShadow="xs" position="relative" overflow="hidden">
                         <Box position="absolute" top={-2} right={-2} opacity={0.05}>
-                            <Icon as={PieChart} boxSize="24" color="teal.500" />
+                            <Icon as={PieChart} boxSize="24" color="accent.500" />
                         </Box>
                         <Text fontSize="xs" fontWeight="black" color="fg.muted" mb={4} letterSpacing="widest">TOTAL EVALUATION</Text>
                         <Text fontSize="3xl" fontWeight="900" color="fg">₩{balance.summary.total_eval.toLocaleString()}</Text>
                     </Box>
                     <Box bg="bg.panel" p={8} borderRadius="2xl" border="1px solid" borderColor="border.subtle" boxShadow="xs" position="relative" overflow="hidden">
                         <Box position="absolute" top={-2} right={-2} opacity={0.05}>
-                            <Icon as={TrendingUp} boxSize="24" color="teal.500" />
+                            <Icon as={TrendingUp} boxSize="24" color="accent.500" />
                         </Box>
                         <Text fontSize="xs" fontWeight="black" color="fg.muted" mb={4} letterSpacing="widest">PROFIT / LOSS</Text>
                         <Text fontSize="3xl" fontWeight="900" color={balance.summary.total_profit >= 0 ? "red.600" : "blue.600"}>
@@ -77,10 +77,10 @@ export default function AccountPage() {
 
             <Tabs.Root defaultValue="stocks" variant="enclosed">
                 <Tabs.List bg="bg.muted" p={1} borderRadius="2xl" mb={6} border="none" w="fit-content">
-                    <Tabs.Trigger value="stocks" borderRadius="xl" _selected={{ bg: "bg.panel", boxShadow: "sm", color: "teal.600" }} fontSize="sm" fontWeight="bold" px={8} py={2}>
+                    <Tabs.Trigger value="stocks" borderRadius="xl" _selected={{ bg: "bg.panel", boxShadow: "sm", color: "accent.600" }} fontSize="sm" fontWeight="bold" px={8} py={2}>
                         보유 종목
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="orders" borderRadius="xl" _selected={{ bg: "bg.panel", boxShadow: "sm", color: "teal.600" }} fontSize="sm" fontWeight="bold" px={8} py={2}>
+                    <Tabs.Trigger value="orders" borderRadius="xl" _selected={{ bg: "bg.panel", boxShadow: "sm", color: "accent.600" }} fontSize="sm" fontWeight="bold" px={8} py={2}>
                         주문 체결
                     </Tabs.Trigger>
                 </Tabs.List>
@@ -150,7 +150,7 @@ export default function AccountPage() {
                                             </Badge>
                                         </Table.Cell>
                                         <Table.Cell textAlign="right" fontWeight="bold" color="fg">{order.order_qty.toLocaleString()}</Table.Cell>
-                                        <Table.Cell textAlign="right" fontWeight="bold" color="teal.600">{order.filled_qty.toLocaleString()}</Table.Cell>
+                                        <Table.Cell textAlign="right" fontWeight="bold" color="accent.600">{order.filled_qty.toLocaleString()}</Table.Cell>
                                         <Table.Cell textAlign="right" fontWeight="black" color="fg">₩{order.avg_price.toLocaleString()}</Table.Cell>
                                     </Table.Row>
                                 ))}

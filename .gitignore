@@ -4,5 +4,6 @@ __pycache__/
 commands/
 .env
 .token_cache.json
+scripts/.sweep_checkpoint.json
 test/
 ssh-key*
