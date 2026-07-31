@@ -23,19 +23,44 @@ export const GRAD_ID: Record<OhlcvPeriod, string> = {
     yearly: "colorPriceYearly",
 };
 
+/**
+ * 차트·호가·투자자 탭이 공유하는 본문 높이.
+ *
+ * 탭마다 내용 높이가 다르면 탭을 옮길 때마다 카드가 늘었다 줄었다 해서 오른쪽 패널이
+ * 출렁인다. 세 탭 모두 이 높이에 맞춰 내용을 채우거나 줄인다.
+ */
+export const TAB_BODY_PX = 360;
+export const TAB_BODY_H = `${TAB_BODY_PX}px`;
+
 /** 축 라벨이 잘리지 않도록 사방 여백 (특히 아래·오른쪽) */
-export const CHART_MARGIN = { top: 10, right: 24, left: 8, bottom: 8 };
+export const CHART_MARGIN = { top: 10, right: 24, left: 12, bottom: 8 };
+
+/** Y축 라벨과 그래프 사이 간격. width="auto"가 잰 글자 폭에 이만큼이 더 붙는다. */
+export const Y_TICK_MARGIN = 10;
 
 /**
- * 가격 축 눈금 축약 — 소수점을 버리고 자연수로만 표시해 라벨 길이를 최소화한다.
- * 예) 13,726,154,839,133 → "14조",  208,500 → "209천"
+ * 가격 축 눈금 표기.
+ *
+ * 예전에는 1만 이상을 전부 "N만"으로 반올림했는데, 주가는 눈금 간격이 1~2%라
+ * 89,000 / 90,500 / 92,000 / 93,500이 모두 "9만"으로 뭉개져 축이 무의미해졌다.
+ * 그래서 원 단위 구간은 축약하지 않고 자릿수 구분만 넣는다 — 눈금이 절대 겹치지 않는다.
+ * 폭은 YAxis width="auto"가 실제 글자를 재서 잡으므로 길어져도 잘리지 않는다.
+ *
+ * 억/조 단위(시가총액·거래대금)는 자릿수가 너무 길어 축약하되, 100단위 미만이면
+ * 소수 한 자리를 남겨 인접 눈금이 같은 값으로 반올림되지 않게 한다.
+ * 예) 1,234,500 → "1,234,500",  350,000,000 → "3.5억",  13,726,154,839,133 → "13.7조"
  */
 export function compactPrice(v: number): string {
     const abs = Math.abs(v);
-    if (abs >= 1e12) return `${Math.round(v / 1e12)}조`;
-    if (abs >= 1e8) return `${Math.round(v / 1e8)}억`;
-    if (abs >= 1e4) return `${Math.round(v / 1e4)}만`;
-    return String(Math.round(v));
+    if (abs >= 1e12) return `${scaled(v, 1e12)}조`;
+    if (abs >= 1e8) return `${scaled(v, 1e8)}억`;
+    return Math.round(v).toLocaleString();
+}
+
+/** 100단위 미만이면 소수 한 자리를 남긴다 (인접 눈금이 같은 값으로 뭉치는 것 방지) */
+function scaled(v: number, unit: number): string {
+    const n = v / unit;
+    return Math.abs(n) < 100 ? n.toFixed(1) : String(Math.round(n));
 }
 
 /** 눈금 글자 스타일. Y축은 width="auto"가 이 크기를 재서 축 폭을 잡는다. */

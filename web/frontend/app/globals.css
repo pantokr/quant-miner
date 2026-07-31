@@ -44,6 +44,13 @@ svg text {
   font-feature-settings: "tnum";
 }
 
+/* 차트 새로고침 버튼 아이콘 회전 */
+@keyframes qmSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* DataGrid 재조회 표시 — 표를 덮지 않고 상단에서 흐르는 진행 바 */
 @keyframes dataGridSweep {
   0%   { transform: translateX(-100%); }

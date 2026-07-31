@@ -1,20 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Badge, Box, HStack, Heading, Icon, Text, VStack } from "@chakra-ui/react";
 import { Database, Search, Sparkles } from "lucide-react";
 import { DatasetPanel } from "@/components/search/DatasetPanel";
 import { DATASETS } from "@/components/search/datasets";
 import { SearchBox, SelectedStock } from "@/components/search/SearchBox";
 import { StockSummary } from "@/components/search/StockSummary";
+import { usePersistentState } from "@/hooks/usePersistentState";
 import { MasterStock, stocksByCodes } from "@/lib/stock-search";
 
 const POPULAR_CODES = ["005930", "000660", "373220", "005380", "035420", "068270", "042660", "012450"];
 
+/** useSearchParams는 Suspense 경계 안에서만 프리렌더된다 */
 export default function StockSearchPage() {
-    const [stock, setStock] = useState<SelectedStock | null>(null);
-    const [datasetId, setDatasetId] = useState(DATASETS[0].id);
+    return (
+        <Suspense fallback={null}>
+            <StockSearchView />
+        </Suspense>
+    );
+}
+
+function StockSearchView() {
+    const params = useSearchParams();
+    const codeParam = params.get("code");
+    const nameParam = params.get("name");
+
+    // 새로고침해도 보던 종목·데이터셋이 그대로 남는다
+    const [stock, setStock] = usePersistentState<SelectedStock | null>("search-stock", null);
+    const [datasetId, setDatasetId] = usePersistentState("search-dataset", DATASETS[0].id);
     const [popular, setPopular] = useState<MasterStock[]>([]);
+
+    // 대시보드에서 ?code=…로 넘어온 경우 그 종목을 연다.
+    // 이후 사용자가 다른 종목을 고르면 파라미터가 그대로라 다시 덮어쓰지 않는다.
+    useEffect(() => {
+        if (!codeParam) return;
+        setStock({ code: codeParam, name: nameParam ?? codeParam, market: "" });
+    }, [codeParam, nameParam, setStock]);
 
     const dataset = DATASETS.find(d => d.id === datasetId) ?? DATASETS[0];
 
