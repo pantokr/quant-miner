@@ -34,13 +34,17 @@ export function useFetch<T>(url: string | null, fallback: T, refreshMs = 0): Fet
     const loadedUrl = useRef<string | null>(null);
 
     const [nonce, setNonce] = useState(0);
+    const [isManualReload, setIsManualReload] = useState(false);
     const [state, setState] = useState<Omit<FetchState<T>, "reload">>({
         data: fallback,
         loading: false,
         error: null,
     });
 
-    const reload = useCallback(() => setNonce(n => n + 1), []);
+    const reload = useCallback(() => {
+        setIsManualReload(true);
+        setNonce(n => n + 1);
+    }, []);
 
     useEffect(() => {
         if (!url) {
@@ -51,10 +55,16 @@ export function useFetch<T>(url: string | null, fallback: T, refreshMs = 0): Fet
         let cancelled = false;
         const sameUrl = loadedUrl.current === url;
         loadedUrl.current = url;
+
+        // 수동 새로고침이거나 다른 종목으로 이동 시
         setState(s => sameUrl
             ? { ...s, loading: true, error: null }
             : { data: fallbackRef.current, loading: true, error: null });
-        fetch(url, { cache: "no-store" })
+
+        const finalUrl = isManualReload ? `${url}${url.includes("?") ? "&" : "?"}use_cache=false` : url;
+        setIsManualReload(false);
+
+        fetch(finalUrl, { cache: "no-store" })
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return res.json();

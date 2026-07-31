@@ -81,7 +81,8 @@ def ohlcv_all(
     save: bool = Query(True, description="DB 저장 여부"),
 ):
     """전 기간 OHLCV 수집 (페이지네이션 자동 처리, 시간 소요 있음)"""
-    items = get_ohlcv_all(iscd=iscd, start_date=start, period=period, save=save)
+    items = get_ohlcv_all(iscd=iscd, start_date=start,
+                          period=period, save=save)
     if not items:
         raise HTTPException(status_code=404, detail="데이터 없음")
     return [
@@ -132,8 +133,16 @@ def orderbook(iscd: str):
 def investor_trend(
     iscd: str,
     save: bool = Query(True, description="DB 저장 여부"),
+    use_cache: bool = Query(True, description="DB 캐시 사용 여부"),
 ):
     """투자자별 매매동향 (모의환경에서는 빈 배열)"""
+    from shared.db.stock_investor import query_investor_trend
+
+    if use_cache:
+        cached = query_investor_trend(iscd)
+        if cached:
+            return cached
+
     items = get_investor_trend(iscd, save=save)
 
     def n(value) -> int:
@@ -143,7 +152,7 @@ def investor_trend(
         except (TypeError, ValueError):
             return 0
 
-    return [
+    res = [
         InvestorRow(
             date=i.stck_bsop_date,
             individual_net=n(i.prsn_ntby_qty),
@@ -152,6 +161,8 @@ def investor_trend(
         )
         for i in items
     ]
+    # API 결과가 있고 캐시를 안 썼다면 (혹은 강제 갱신이면) 결과 반환
+    return res
 
 
 @router.get("/{iscd}/short-sell")
