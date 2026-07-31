@@ -78,5 +78,38 @@ ssh <user>@<server> "cd ~/quant-miner && docker compose logs -f backend"
 
 ---
 
+## 5. 서버에서 직접 배포 (deploy.sh)
+
+Actions가 실패했거나 즉시 반영이 필요하면 서버에서 직접 돌린다.
+
+```bash
+ssh <user>@<server>
+cd ~/quant-miner
+
+./deploy.sh              # git pull + 재빌드 + 기동 + 헬스체크
+./deploy.sh --fresh      # 컨테이너를 내렸다 새로 올림 (설정/네트워크가 꼬였을 때)
+./deploy.sh --clean      # --fresh + 캐시 무시 전체 재빌드
+./deploy.sh --no-pull    # 현재 코드 그대로 재기동
+./deploy.sh --master     # 기동 후 종목 마스터(stock_master) 적재까지
+```
+
+- `docker` 권한이 없으면 자동으로 `sudo`를 붙인다.
+- **DB 볼륨(`pgdata`)은 어떤 옵션에서도 삭제하지 않는다.**
+- 기동 후 `/health`와 `/stock/search`를 실제로 찔러 확인하고, 실패하면 backend 로그를 출력하고 종료한다.
+
+### 종목 검색을 쓰려면 1회 필요
+
+`stock_master` 테이블이 비어 있으면 종목명 검색이 동작하지 않는다. 배포 후 한 번 적재한다.
+
+```bash
+./deploy.sh --master
+# 또는
+docker compose exec api python scripts/load_stock_master.py
+```
+
+사명 변경·상장/폐지 반영을 위해 주 1회 정도 재실행을 권한다.
+
+---
+
 ## 대안: 수동 배포
 CI 없이 즉시 반영하려면 [docker-upload.ps1](docker-upload.ps1) (로컬 빌드 → 이미지 전송 → 서버 load & 기동). 자동/수동 병행 가능.

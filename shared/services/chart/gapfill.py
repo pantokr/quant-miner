@@ -14,10 +14,41 @@
 DB에는 저장하지 않는다 — 채운 값은 실제 체결이 아니므로 조회 응답에만 얹고
 `is_filled=True`로 표시해 원본과 구분할 수 있게 한다.
 """
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 
 MARKET_OPEN = "090000"
 MARKET_CLOSE = "153000"
+
+# DB의 ts는 KST 벽시계 기준이고 서버 컨테이너는 UTC로 도는 경우가 많아
+# "지금 몇 시인가"를 절대 로컬 시각으로 판단하면 안 된다.
+KST = timezone(timedelta(hours=9))
+
+# KIS 분봉은 실시간보다 1~2분 늦게 채워진다. 그만큼은 없어도 정상으로 본다.
+FEED_LAG_MINUTES = 3
+
+
+def now_kst() -> datetime:
+    return datetime.now(KST)
+
+
+def expected_last_minute(trade_date: str, now: datetime | None = None) -> str:
+    """
+    그 날짜에 '지금 시점에 존재해야 할' 마지막 분봉 시각(HHMMSS).
+
+    과거 날짜면 장 마감(15:30). 오늘이면 현재 시각까지만 기대한다 —
+    11시에 조회하면서 15:30까지 있기를 기대하면 매번 불완전 판정이 난다.
+    장 시작 전이면 빈 문자열(기대할 봉이 없음).
+    """
+    now = now or now_kst()
+    if trade_date != now.strftime("%Y%m%d"):
+        return MARKET_CLOSE
+
+    current = now - timedelta(minutes=FEED_LAG_MINUTES)
+    hhmm = current.strftime("%H%M00")
+    if hhmm < MARKET_OPEN:
+        return ""
+    return min(hhmm, MARKET_CLOSE)
 
 
 def market_minutes(open_time: str = MARKET_OPEN, close_time: str = MARKET_CLOSE) -> List[str]:
@@ -31,20 +62,27 @@ def fill_minute_gaps(
     rows: List[Dict],
     trade_date: str = "",
     open_time: str = MARKET_OPEN,
-    close_time: str = MARKET_CLOSE,
+    close_time: str = "",
 ) -> List[Dict]:
     """
-    분봉 리스트의 빈 시간대를 채워 09:00~15:30 전 구간을 반환.
+    분봉 리스트의 빈 시간대를 채운다.
 
     Args:
         rows:       query_minute_range가 돌려준 dict 리스트 (trade_time 오름차순 가정)
         trade_date: 채워 넣을 행의 trade_date. 비우면 rows에서 가져온다.
+        close_time: 어디까지 채울지. 비우면 그 날짜 기준으로 자동 판정한다
+                    (오늘이면 현재 시각까지, 과거면 15:30까지).
+                    아직 오지 않은 시각까지 평선을 그려 넣지 않기 위함.
 
     Returns:
-        매 분이 모두 존재하는 리스트. 채운 행은 is_filled=True.
+        open_time~close_time의 매 분이 존재하는 리스트. 채운 행은 is_filled=True.
     """
     if not rows:
         return []
+
+    date_for_bound = trade_date or str(rows[0].get("trade_date", ""))
+    if not close_time:
+        close_time = expected_last_minute(date_for_bound) or MARKET_CLOSE
 
     by_time = {str(r["trade_time"]): r for r in rows}
     stock_code = rows[0].get("stock_code", "")

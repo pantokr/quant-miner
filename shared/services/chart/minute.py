@@ -24,6 +24,7 @@ from shared.db.stock_minute import (
     upsert_minute_chart,
     query_minute_range,
 )
+from shared.services.chart.gapfill import expected_last_minute
 
 TR_ID = "FHKST03010230"  # 일별분봉 전용
 _API_PATH = "/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice"
@@ -123,12 +124,19 @@ def get_minute_chart(iscd: str, date: str) -> List[dict]:
     if is_no_data_date(iscd, date):
         return []
 
-    # 2. DB 커버리지 확인 (시간 범위 + 건수)
+    # 2. DB 커버리지 확인.
+    #    장 마감(15:30)을 기준으로 삼으면 장중에는 절대 만족할 수 없으므로,
+    #    "지금 시점에 있어야 할 마지막 봉"까지 들어와 있는지로 판단한다.
     min_time, max_time, count = get_minute_coverage(iscd, date)
-    is_complete = (
-        min_time == MARKET_OPEN
-        and max_time == MARKET_CLOSE
-        and count >= MIN_COMPLETE_COUNT
+    want_last = expected_last_minute(date)
+    is_complete = bool(
+        max_time
+        and want_last
+        and max_time >= want_last
+        and (
+            # 과거 날짜는 건수까지 확인 (부분 적재된 캐시를 걸러내기 위함)
+            want_last < MARKET_CLOSE or count >= MIN_COMPLETE_COUNT
+        )
     )
 
     if is_complete:

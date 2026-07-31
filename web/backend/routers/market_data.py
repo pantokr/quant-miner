@@ -12,7 +12,7 @@ from shared.models.stock.schema import MinuteChartRow, OhlcvRow, InvestorRow
 from shared.db.stock_minute import query_minute_range
 from shared.db.stock_ohlcv import query_ohlcv
 from shared.db.stock_investor import query_investor_trend
-from shared.services.chart.gapfill import fill_minute_gaps
+from shared.services.chart.gapfill import expected_last_minute, fill_minute_gaps
 from web.backend.gateway import proxy_get
 
 router = APIRouter(tags=["market-data (DB)"])
@@ -25,13 +25,30 @@ MARKET_CLOSE = "153000"
 def minute_chart(
     iscd: str,
     date: str = Query(..., examples=["20260102"]),
-    fill: bool = Query(True, description="체결 없는 분을 직전 값으로 메워 391분을 채움"),
+    fill: bool = Query(True, description="체결 없는 분을 직전 값으로 메워 빈 시간대를 채움"),
 ):
-    """일일 분봉 (대시보드 차트용). 기본적으로 빈 시간대를 메워 09:00~15:30을 채운다."""
+    """
+    일일 분봉 (대시보드 차트용).
+
+    DB를 먼저 보되 "지금 있어야 할 시각까지" 들어와 있는지 확인한다. 예전에는
+    DB에 몇 봉이라도 있으면 그대로 돌려줘서, 11시까지만 적재된 종목은 15시에
+    조회해도 11시 이후가 비어 그래프가 중간에 끊겼다.
+    """
     rows = query_minute_range(iscd, date, MARKET_OPEN, date, MARKET_CLOSE)
-    if not rows:
-        # DB에 없으면 게이트웨이가 수집·적재한 결과를 받는다(그쪽에서 이미 메워서 준다)
-        return proxy_get(f"/stock/{iscd}/minute-chart", {"date": date, "fill": fill})
+    want_last = expected_last_minute(date)
+
+    have_last = str(rows[-1]["trade_time"]) if rows else ""
+    stale = bool(want_last) and have_last < want_last
+
+    if stale:
+        # 게이트웨이가 KIS에서 최신까지 수집·적재한 뒤 돌려준다
+        fresh = proxy_get(f"/stock/{iscd}/minute-chart", {"date": date, "fill": fill})
+        if fresh:
+            return fresh
+        # 게이트웨이도 못 가져오면(휴장 등) DB에 있는 만큼이라도 보여 준다
+        if not rows:
+            return []
+
     return fill_minute_gaps(rows, trade_date=date) if fill else rows
 
 
