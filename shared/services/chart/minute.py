@@ -114,7 +114,7 @@ def get_daily_minute_chart_api(
     return filtered
 
 
-def get_minute_chart(iscd: str, date: str) -> List[dict]:
+def get_minute_chart(iscd: str, date: str, use_cache: bool = True) -> List[dict]:
     """
     특정 날짜의 분봉 데이터 조회 (DB 캐시 우선)
     시간은 090000 ~ 153000 고정.
@@ -130,7 +130,8 @@ def get_minute_chart(iscd: str, date: str) -> List[dict]:
     min_time, max_time, count = get_minute_coverage(iscd, date)
     want_last = expected_last_minute(date)
     is_complete = bool(
-        max_time
+        use_cache
+        and max_time
         and want_last
         and max_time >= want_last
         and (
