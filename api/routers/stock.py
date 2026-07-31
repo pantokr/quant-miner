@@ -22,11 +22,10 @@ def minute_chart(
     date: str = Query(..., examples=["20260102"],
                       description="조회 일자 'YYYYMMDD'"),
     fill: bool = Query(True, description="체결 없는 분을 직전 값으로 메워 391분을 채움"),
-    use_cache: bool = Query(True, description="DB 캐시 사용 여부"),
 ):
     """분봉 조회 (당일 09:00:00 ~ 15:30:00 전체 데이터)"""
     try:
-        rows = get_minute_chart(iscd=iscd, date=date, use_cache=use_cache)
+        rows = get_minute_chart(iscd=iscd, date=date)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:

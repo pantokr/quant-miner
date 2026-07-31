@@ -61,7 +61,7 @@ export function useFetch<T>(url: string | null, fallback: T, refreshMs = 0): Fet
             ? { ...s, loading: true, error: null }
             : { data: fallbackRef.current, loading: true, error: null });
 
-        const finalUrl = isManualReload ? `${url}${url.includes("?") ? "&" : "?"}use_cache=false` : url;
+        const finalUrl = url;
         setIsManualReload(false);
 
         fetch(finalUrl, { cache: "no-store" })

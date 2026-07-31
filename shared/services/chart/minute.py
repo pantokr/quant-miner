@@ -130,8 +130,7 @@ def get_minute_chart(iscd: str, date: str, use_cache: bool = True) -> List[dict]
     min_time, max_time, count = get_minute_coverage(iscd, date)
     want_last = expected_last_minute(date)
     is_complete = bool(
-        use_cache
-        and max_time
+        max_time
         and want_last
         and max_time >= want_last
         and (
