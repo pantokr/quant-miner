@@ -95,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         pointerEvents="none"
                     />
                     {/* h(=100%)여야 자식의 height:100%가 풀리지 않는다.
-                        minH만 주면 이 박스의 높이가 auto가 되어, 대시보드처럼
+                        minH만 주면 이 박스의 높이가 auto가 되어, 시장 순위처럼
                         "화면 한 장에 담고 표 안에서만 스크롤" 하는 레이아웃이 무너진다.
                         내용이 더 길어지면 넘친 만큼 바깥 스크롤 영역이 스크롤한다. */}
                     <Box position="relative" zIndex={1} h="100%">

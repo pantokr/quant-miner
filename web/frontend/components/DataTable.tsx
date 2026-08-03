@@ -45,7 +45,7 @@ export function DataTable() {
         </Table.Header>
         <Table.Body>
           {trades.map((trade, i) => (
-            <Table.Row {...TABLE_ROW} key={i}>
+            <Table.Row key={i} {...TABLE_ROW}>
               <Table.Cell {...TABLE_CELL} pl={5} color="fg.muted" fontFamily="mono">{trade.date}</Table.Cell>
               <Table.Cell {...TABLE_CELL}>{trade.strategy}</Table.Cell>
               <Table.Cell {...TABLE_CELL} fontWeight="semibold" fontFamily="mono">{trade.symbol}</Table.Cell>

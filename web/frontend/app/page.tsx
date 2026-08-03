@@ -74,10 +74,10 @@ export default function StockRankingPage() {
     >
       <VStack align="start" gap={1} flexShrink={0}>
         <Heading size="xl" fontWeight="900" color="fg" letterSpacing="tight">
-          시장 대시보드
+          시장 순위
         </Heading>
         <Text fontSize="sm" fontWeight="medium" color="fg.subtle">
-          실시간 시장 지표 및 종목별 퀀트 분석 데이터
+          등락률·거래량·수급 순위와 종목별 퀀트 분석 데이터
         </Text>
       </VStack>
 

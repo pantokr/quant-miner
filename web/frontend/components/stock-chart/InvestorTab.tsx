@@ -135,7 +135,7 @@ export function InvestorTab({ stock }: Props) {
                         </Table.Header>
                         <Table.Body>
                             {recent.slice(0, TABLE_ROWS).map(row => (
-                                <Table.Row {...TABLE_ROW} key={row.date}>
+                                <Table.Row key={row.date} {...TABLE_ROW}>
                                     <Table.Cell {...TABLE_CELL} pl={3} py={1.5} fontSize="2xs" color="fg.muted" fontFamily="mono">
                                         {mmdd(row.date)}
                                     </Table.Cell>

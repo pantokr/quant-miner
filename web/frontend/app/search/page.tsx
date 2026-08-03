@@ -32,7 +32,7 @@ function StockSearchView() {
     const [datasetId, setDatasetId] = usePersistentState("search-dataset", DATASETS[0].id);
     const [popular, setPopular] = useState<MasterStock[]>([]);
 
-    // 대시보드에서 ?code=…로 넘어온 경우 그 종목을 연다.
+    // 시장 순위 화면에서 ?code=…로 넘어온 경우 그 종목을 연다.
     // 이후 사용자가 다른 종목을 고르면 파라미터가 그대로라 다시 덮어쓰지 않는다.
     useEffect(() => {
         if (!codeParam) return;

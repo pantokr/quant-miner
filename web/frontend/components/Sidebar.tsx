@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 
 const MENU = [
-  { label: "대시보드", icon: LayoutDashboard, href: "/" },
+  { label: "시장 순위", icon: LayoutDashboard, href: "/" },
   { label: "종목 데이터 조회", icon: Search, href: "/search" },
   { label: "데이터 시각화", icon: BarChart3, href: "/visualize" },
   { label: "나의 계좌", icon: CreditCard, href: "/account" },

@@ -166,7 +166,7 @@ export default function AccountPage() {
                             </Table.Header>
                             <Table.Body>
                                 {balance?.stocks.map((stock) => (
-                                    <Table.Row {...TABLE_ROW} key={stock.stock_code}>
+                                    <Table.Row key={stock.stock_code} {...TABLE_ROW}>
                                         <Table.Cell {...TABLE_CELL} py={3}>
                                             <VStack align="start" gap={0}>
                                                 <Text fontWeight="semibold" fontSize="sm" color="fg">{stock.stock_name}</Text>
@@ -218,7 +218,7 @@ export default function AccountPage() {
                             </Table.Header>
                             <Table.Body>
                                 {orders.map((order) => (
-                                    <Table.Row {...TABLE_ROW} key={order.order_no}>
+                                    <Table.Row key={order.order_no} {...TABLE_ROW}>
                                         <Table.Cell {...TABLE_CELL} py={3} fontSize="2xs" color="fg.muted" fontFamily="mono">
                                             {order.order_no}
                                         </Table.Cell>

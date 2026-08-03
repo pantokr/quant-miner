@@ -116,9 +116,12 @@ export function RankingTable({
                             const statusColor = isUp ? "red.500" : isDown ? "blue.500" : "fg.subtle";
 
                             return (
+                                // key는 스프레드보다 앞에 둔다 — 뒤에 두면 JSX 컴파일러가
+                                // _jsxs 대신 createElement로 폴백해 셀들이 동적 배열로 취급되고,
+                                // 셀마다 key가 없다는 경고가 뜬다.
                                 <Table.Row
-                                    {...TABLE_ROW}
                                     key={item.stock_code}
+                                    {...TABLE_ROW}
                                     onClick={() => onSelect(item)}
                                     bg={isSelected ? "accent.500/10" : "transparent"}
                                     _hover={{ bg: isSelected ? "accent.500/15" : "bg.muted" }}

@@ -30,7 +30,7 @@ const RAISED_CARD = {
     borderWidth: "1px",
     borderColor: "border.subtle",
     // 아래로 번지는 거리를 22px 안쪽으로 묶어 뒀다 — 페이지 하단 여백(24px)을
-    // 넘기면 대시보드의 overflow:hidden에 그림자 끝이 잘려 네모나게 보인다.
+    // 넘기면 시장 순위 화면의 overflow:hidden에 그림자 끝이 잘려 네모나게 보인다.
     boxShadow: [
         "0 1px 1px rgba(15,23,42,0.05)",
         "0 2px 4px -1px rgba(15,23,42,0.07)",
