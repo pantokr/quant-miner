@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Query
 from typing import List
 
@@ -6,7 +7,7 @@ from shared.models.stock import (
 )
 from shared.services.chart.minute import get_minute_chart, get_minute_chart_range
 from shared.services.chart.gapfill import fill_minute_gaps
-from shared.services.quote.ohlcv import get_period_ohlcv, get_ohlcv_all
+from shared.services.quote.ohlcv import ensure_ohlcv_coverage, get_ohlcv_all
 from shared.services.quote.current import get_current_price
 from shared.services.quote.orderbook import get_orderbook
 from shared.services.quote.investor import get_investor_trend
@@ -56,21 +57,39 @@ def period_ohlcv(
     period: str = Query("D", description="D:일 W:주 M:월 Y:년"),
     save: bool = Query(True, description="DB 저장 여부"),
 ):
-    """기간별 OHLCV 조회 (save=true 시 DB 적재)"""
-    items = get_period_ohlcv(iscd=iscd, start_date=start,
-                             end_date=end, period=period, save=save)
-    if not items:
+    """기간별 OHLCV 조회 (DB 우선, 모자란 구간만 KIS 수집)"""
+    from shared.db.stock_ohlcv import query_ohlcv
+
+    # 예전에는 캐시가 "하나라도" 있으면 그대로 돌려줬다. 그래서 최근 3개월만 적재된
+    # 종목을 1년으로 조회하면 3개월치만 나오고, 나머지는 영영 채워지지 않았다.
+    # 이제는 요청 구간과 DB 커버리지를 비교해 빠진 구간만 받아 온다.
+    try:
+        ensure_ohlcv_coverage(iscd=iscd, start_date=start,
+                              end_date=end, period=period, save=save)
+    except RuntimeError as e:
+        # 수집에 실패해도 DB에 있는 만큼은 보여 준다 — 빈 화면보다 낫다
+        logging.warning(f"[{iscd}] OHLCV 결손 수집 실패: {e}")
+
+    cached = query_ohlcv(iscd, period, start, end)
+
+    if not cached:
         raise HTTPException(status_code=404, detail="데이터 없음")
-    return [
-        OhlcvRow(
-            date=i.stck_bsop_date,
-            open=int(i.stck_oprc), high=int(i.stck_hgpr),
-            low=int(i.stck_lwpr), close=int(i.stck_clpr),
-            volume=int(i.acml_vol), amount=int(i.acml_tr_pbmn),
-            change_sign=i.prdy_vrss_sign, change_val=int(i.prdy_vrss),
-        )
-        for i in items
-    ]
+
+    try:
+        return [
+            OhlcvRow(
+                date=str(r["date"]),
+                open=int(r["open"] or 0), high=int(r["high"] or 0),
+                low=int(r["low"] or 0), close=int(r["close"] or 0),
+                volume=int(r["volume"] or 0), amount=int(r["amount"] or 0),
+                change_sign=str(r["change_sign"] or ""), change_val=int(r["change_val"] or 0),
+            )
+            for r in cached
+        ]
+    except Exception as e:
+        import logging
+        logging.error(f"OhlcvRow 변환 오류: {e}, data: {cached[:1]}")
+        raise HTTPException(status_code=500, detail=f"데이터 변환 오류: {e}")
 
 
 @router.get("/{iscd}/ohlcv/all", response_model=List[OhlcvRow])
@@ -172,9 +191,13 @@ def short_sell(
     end:   str = Query(..., examples=["20260113"]),
     save: bool = Query(True),
 ):
-    """공매도 현황 (실전투자 환경 필요)"""
-    items = get_short_sell(iscd, start, end, save=save)
-    return {"count": len(items), "data": [i.model_dump() for i in items]}
+    """공매도 현황 (DB 우선, 없으면 KIS 수집)"""
+    from shared.db.stock_short import query_short_sell
+    cached = query_short_sell(iscd, start, end)
+    if not cached:
+        get_short_sell(iscd, start, end, save=save)
+        cached = query_short_sell(iscd, start, end)
+    return {"count": len(cached), "data": cached}
 
 
 @router.get("/{iscd}/credit")
@@ -184,6 +207,10 @@ def credit(
     end:   str = Query(..., examples=["20260113"]),
     save: bool = Query(True),
 ):
-    """신용잔고 (실전투자 환경 필요)"""
-    items = get_credit(iscd, start, end, save=save)
-    return {"count": len(items), "data": [i.model_dump() for i in items]}
+    """신용잔고 (DB 우선, 없으면 KIS 수집)"""
+    from shared.db.stock_short import query_credit
+    cached = query_credit(iscd, start, end)
+    if not cached:
+        get_credit(iscd, start, end, save=save)
+        cached = query_credit(iscd, start, end)
+    return {"count": len(cached), "data": cached}

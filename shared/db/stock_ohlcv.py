@@ -1,5 +1,5 @@
 import psycopg2.extras
-from typing import List
+from typing import List, Optional, Tuple
 from shared.db.connection import get_connection
 
 CREATE_TABLE_SQL = """
@@ -70,6 +70,33 @@ def upsert_ohlcv(stock_code: str, period_type: str, rows: List[dict]) -> int:
             psycopg2.extras.execute_values(cur, UPSERT_SQL, values)
         conn.commit()
         return len(values)
+
+
+def get_ohlcv_coverage(
+    stock_code: str, period_type: str, start_date: str, end_date: str
+) -> Tuple[Optional[str], Optional[str], int]:
+    """요청 구간 안에서 DB가 가진 (최초일자, 최종일자, 건수).
+
+    행을 다 읽지 않고 커버리지만 본다 — "받아올 게 남았나"를 판단하려고 10년치를
+    통째로 메모리에 올릴 이유는 없다. 일자는 YYYYMMDD 문자열, 없으면 (None, None, 0).
+    """
+    s = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}"
+    e = f"{end_date[:4]}-{end_date[4:6]}-{end_date[6:]}"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT TO_CHAR(MIN(base_date), 'YYYYMMDD'),
+                       TO_CHAR(MAX(base_date), 'YYYYMMDD'),
+                       COUNT(*)
+                FROM stock_ohlcv
+                WHERE stock_code = %s AND period_type = %s
+                  AND base_date BETWEEN %s AND %s
+                """,
+                (stock_code, period_type, s, e),
+            )
+            min_date, max_date, count = cur.fetchone()
+            return min_date, max_date, int(count or 0)
 
 
 def query_ohlcv(stock_code: str, period_type: str, start_date: str, end_date: str) -> List[dict]:

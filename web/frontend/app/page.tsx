@@ -18,10 +18,10 @@ const TABS = [
 /** 탭마다 KIS가 지원하는 정렬 기준이 다르다 */
 const SORT_OPTIONS: Record<string, SortOption[]> = {
   fluctuation: [
-    { value: "0", label: "상승률 순" },
-    { value: "1", label: "하락률 순" },
-    { value: "2", label: "시가대비 상승" },
-    { value: "3", label: "시가대비 하락" },
+    { value: "0", label: "등락률 높은 순" },
+    { value: "1", label: "등락률 낮은 순" },
+    { value: "2", label: "시가대비 높은 순" },
+    { value: "3", label: "시가대비 낮은 순" },
   ],
   volume: [
     { value: "0", label: "평균거래량 순" },
@@ -121,14 +121,13 @@ export default function StockRankingPage() {
             onSortChange={setSort}
           />
         </GridItem>
-        {/* 그래프 패널은 제 높이 그대로 두고 화면에 붙여 둔다.
-            왼쪽 표가 아무리 길어져도(=몇 행이든) 패널은 따라 내려가지 않으므로
-            1행이든 N행이든 누르는 즉시 같은 자리에서 그래프가 바뀐다.
-            sticky가 동작하려면 alignSelf가 stretch가 아니어야 한다.
+        {/* 그래프 패널은 제 높이(카드 고정 높이) 그대로 두고 왼쪽 표 옆 한가운데에 앉힌다.
+            넓은 화면에서는 표가 훨씬 길어 위로 붙이면 아래가 휑하게 남는다.
+            좁은 화면은 두 패널이 세로로 쌓이므로 위에 붙인 채 sticky로 따라오게 둔다.
 
             여기에 overflow를 걸면 안 된다 — 클리핑 박스가 카드 경계에 딱 맞게 생겨서
             카드 바깥으로 번지는 그림자가 잘린다. 넘칠 때의 스크롤은 카드 안에서 처리한다. */}
-        <GridItem minH={0} alignSelf="start" position="sticky" top={0}>
+        <GridItem minH={0} alignSelf={{ base: "start", lg: "center" }} position="sticky" top={0}>
           <StockChartDetail stock={activeStock} />
         </GridItem>
       </Grid>

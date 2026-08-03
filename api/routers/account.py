@@ -1,19 +1,42 @@
+import requests
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
 
 from shared.models.account import BalanceSummary, BalanceItem, BalanceResult, CcldItem
-from shared.kis_auth import get_valid_token
+from shared.kis_auth import get_valid_token, ENV_DV
 from shared.services.account.account import get_balance, get_daily_ccld
 
 router = APIRouter(prefix="/account", tags=["account"])
 
 
+def _kis_error(res) -> str:
+    """KIS 오류 메시지에 환경을 붙인다.
+
+    계좌 TR은 실전/모의 코드가 달라(EGW02006 "모의투자 TR 이 아닙니다") 실패가 잦은데,
+    메시지만으로는 어느 환경으로 부른 건지 알 수 없어 원인을 짚는 데 시간이 걸린다.
+    """
+    return f"{res.msg1.strip()} (KIS_ENV={ENV_DV}, msg_cd={res.msg_cd})"
+
+
+def _fetch(call, *args, **kwargs):
+    """KIS 호출을 감싸 실패를 502로 바꾼다.
+
+    토큰 발급 실패·응답 파싱 실패·네트워크 오류가 그대로 올라가면 FastAPI가 원인을
+    지운 500을 내보내고, 화면에는 "internal error"만 뜬다. 무엇이 잘못됐는지는
+    사용자가 볼 수 있어야 고칠 수 있다.
+    """
+    try:
+        return call(*args, **kwargs)
+    except (RuntimeError, requests.RequestException) as e:
+        raise HTTPException(status_code=502, detail=f"{e} (KIS_ENV={ENV_DV})")
+
+
 @router.get("/balance", response_model=BalanceResult)
 def balance():
     """주식 잔고 조회"""
-    res = get_balance()
+    res = _fetch(get_balance)
     if not res.is_success:
-        raise HTTPException(status_code=502, detail=res.msg1)
+        raise HTTPException(status_code=502, detail=_kis_error(res))
 
     o2 = res.output2[0] if res.output2 else None
     summary = BalanceSummary(
@@ -48,9 +71,10 @@ def daily_ccld(
     if not token:
         raise HTTPException(status_code=502, detail="KIS 토큰 발급 실패")
 
-    res = get_daily_ccld(start_dt=start_dt, end_dt=end_dt, access_token=token)
+    res = _fetch(get_daily_ccld, start_dt=start_dt,
+                 end_dt=end_dt, access_token=token)
     if not res.is_success:
-        raise HTTPException(status_code=502, detail=res.msg1)
+        raise HTTPException(status_code=502, detail=_kis_error(res))
 
     return [
         CcldItem(

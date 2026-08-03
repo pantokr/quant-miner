@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Box, HStack, Icon, Text, VStack } from "@chakra-ui/react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
-import { DataGrid } from "@/components/datagrid/DataGrid";
+import { AlertTriangle, Info, RefreshCw } from "lucide-react";
+import { DEFAULT_PAGE_SIZE, DataGrid } from "@/components/datagrid/DataGrid";
 import { hasNumericColumn, sendToVisualize } from "@/components/visualize/handoff";
-import { DEFAULT_PARAMS, Dataset, QueryParams, daysAgo } from "./datasets";
+import { DEFAULT_PARAMS, Dataset, QueryParams, canWiden, daysAgo, widenStart } from "./datasets";
 import { OrderbookBoard } from "./OrderbookBoard";
 import { QueryControls } from "./QueryControls";
 import { SelectedStock } from "./SearchBox";
@@ -18,6 +18,21 @@ function initParams(dataset: Dataset): QueryParams {
         ? { ...DEFAULT_PARAMS, start: daysAgo(dataset.defaultRangeDays) }
         : { ...DEFAULT_PARAMS };
 }
+
+/**
+ * 기간을 넓혀 다시 받아오는 횟수 상한.
+ * 한 번에 구간이 두 배가 되므로 1년으로 시작하면 여섯 번이면 60년치까지 닿는다.
+ */
+const MAX_REFILLS = 6;
+
+/** 조회 기간 상한 (일) — 서버 부하 방지 */
+const MAX_RANGE_DAYS: Record<string, number> = {
+    ohlcv: 365 * 10, // 일별 시세 10년
+    minute: 31,      // 분봉 1개월
+    "short-sell": 365 * 2, // 공매도 2년
+    credit: 365 * 2,       // 신용잔고 2년
+    dividend: 365 * 10,    // 배당 10년
+};
 
 interface Props {
     dataset: Dataset;
@@ -48,7 +63,8 @@ function GridPanel({ dataset, stock }: Props) {
     // 종목이나 데이터셋이 바뀌면 부모가 key로 이 컴포넌트를 다시 마운트하므로
     // (app/search/page.tsx의 `key={stock.code}:${dataset.id}`) 조건 초기화는 여기서 하지 않는다.
     const [params, setParams] = useState<QueryParams>(() => initParams(dataset));
-    const [applied, setApplied] = useState<QueryParams>(() => initParams(dataset));
+    const [applied, setApplied] = useState<QueryParams>(() => params);
+    const [errorNote, setErrorNote] = useState("");
     const [reloadKey, setReloadKey] = useState(0);
     const [handoffNote, setHandoffNote] = useState("");
     const router = useRouter();
@@ -72,6 +88,17 @@ function GridPanel({ dataset, stock }: Props) {
     const columns = useMemo(() => dataset.columns(rows, applied), [dataset, rows, applied]);
 
     const dirty = JSON.stringify(params) !== JSON.stringify(applied);
+
+    // ── 사용자가 명시한 기간 조회를 최우선으로 한다 ──
+    //
+    // 이전에는 rows per page 숫자를 맞추기 위해 자동으로 기간을 넓혔으나(Auto Refill),
+    // 이 방식은 사용자가 선택한 날짜 범위를 무시하고 입력값을 멋대로 바꾸는 부작용이 컸다.
+    // 이제는 사용자가 정한 '날짜'가 절대 기준이며, 그 기간 내의 데이터만 보여준다.
+    // (더 많은 데이터가 필요하면 사용자가 직접 기간을 넓혀야 한다)
+
+    const resetRefill = () => {
+        // 자동 리필 기능을 제거했으므로 상태 관리용 함수만 남겨 둔다
+    };
 
     return (
         <VStack align="stretch" gap={4}>
@@ -100,6 +127,18 @@ function GridPanel({ dataset, stock }: Props) {
                         cursor="pointer"
                         _hover={{ borderColor: "accent.500", color: dirty ? "white" : "accent.500" }}
                         onClick={() => {
+                            setErrorNote("");
+                            const limit = MAX_RANGE_DAYS[dataset.id];
+                            if (limit) {
+                                const startD = new Date(Number(params.start.slice(0, 4)), Number(params.start.slice(4, 6)) - 1, Number(params.start.slice(6, 8)));
+                                const endD = new Date(Number(params.end.slice(0, 4)), Number(params.end.slice(4, 6)) - 1, Number(params.end.slice(6, 8)));
+                                const diffDays = (endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24);
+                                if (diffDays > limit) {
+                                    setErrorNote(`조회 기간이 너무 깁니다. (${dataset.label} 상한: ${limit}일)`);
+                                    return;
+                                }
+                            }
+                            resetRefill();
                             if (dirty) setApplied(params);
                             else setReloadKey(k => k + 1);
                         }}
@@ -126,6 +165,7 @@ function GridPanel({ dataset, stock }: Props) {
                 </HStack>
             )}
 
+
             {handoffNote && (
                 <HStack
                     gap={2}
@@ -137,6 +177,20 @@ function GridPanel({ dataset, stock }: Props) {
                 >
                     <Icon as={AlertTriangle} boxSize="3.5" color="orange.500" flexShrink={0} />
                     <Text fontSize="xs" fontWeight="medium" color="fg.subtle">{handoffNote}</Text>
+                </HStack>
+            )}
+
+            {errorNote && (
+                <HStack
+                    gap={2}
+                    bg="red.500/10"
+                    borderWidth="1px"
+                    borderColor="red.500/30"
+                    borderRadius="xl"
+                    px={4} py={2.5}
+                >
+                    <Icon as={AlertTriangle} boxSize="3.5" color="red.500" flexShrink={0} />
+                    <Text fontSize="xs" fontWeight="bold" color="red.500">{errorNote}</Text>
                 </HStack>
             )}
 
@@ -161,6 +215,7 @@ function GridPanel({ dataset, stock }: Props) {
                         ? "숫자 열이 없어 그래프로 그릴 수 없는 표입니다."
                         : undefined
                 }
+                onPageSizeChange={() => { /* 자동 리필 없음 */ }}
                 toolbar={
                     fetchedAt && !loading ? (
                         <Text fontSize="2xs" fontWeight="bold" color="fg.muted" letterSpacing="wider">

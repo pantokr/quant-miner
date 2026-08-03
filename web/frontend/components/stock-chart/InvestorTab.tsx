@@ -13,6 +13,13 @@ import {
     YAxis,
 } from "recharts";
 import { STOCK_API } from "@/lib/api-config";
+import {
+    TABLE_CELL,
+    TABLE_HEADER_CELL,
+    TABLE_HEADER_ROW,
+    TABLE_NUM_CELL,
+    TABLE_ROW,
+} from "@/lib/table-style";
 import { StockRankItem } from "@/types/stock";
 import { CHART_MARGIN, TOOLTIP_STYLE, Y_TICK_MARGIN, compactPrice } from "./constants";
 import { useFetch } from "./useFetch";
@@ -49,7 +56,7 @@ export function InvestorTab({ stock }: Props) {
     const chartData = [...recent].reverse();
 
     return (
-        /* 탭 본문(TAB_BODY_H)을 채운다 — 표는 제 높이만 쓰고 나머지를 그래프가 가져간다 */
+        /* 탭 본문에 주어진 높이를 채운다 — 표는 제 높이만 쓰고 나머지를 그래프가 가져간다 */
         <VStack align="stretch" gap={3} flex="1" minH={0} position="relative">
             <RefreshButton
                 onClick={reload}
@@ -119,26 +126,26 @@ export function InvestorTab({ stock }: Props) {
                 <Box border="1px solid" borderColor="border.subtle" borderRadius="xl" overflow="hidden" flexShrink={0}>
                     <Table.Root size="sm" variant="line">
                         <Table.Header>
-                            <Table.Row bg="bg.muted">
-                                <Table.ColumnHeader pl={3} fontSize="2xs" fontWeight="black" color="fg.subtle">DATE</Table.ColumnHeader>
-                                <Table.ColumnHeader textAlign="right" fontSize="2xs" fontWeight="black" color="fg.subtle">개인</Table.ColumnHeader>
-                                <Table.ColumnHeader textAlign="right" fontSize="2xs" fontWeight="black" color="fg.subtle">외국인</Table.ColumnHeader>
-                                <Table.ColumnHeader textAlign="right" pr={3} fontSize="2xs" fontWeight="black" color="fg.subtle">기관</Table.ColumnHeader>
+                            <Table.Row {...TABLE_HEADER_ROW}>
+                                <Table.ColumnHeader {...TABLE_HEADER_CELL} py={1.5} pl={3}>DATE</Table.ColumnHeader>
+                                <Table.ColumnHeader {...TABLE_HEADER_CELL} py={1.5} textAlign="right">개인</Table.ColumnHeader>
+                                <Table.ColumnHeader {...TABLE_HEADER_CELL} py={1.5} textAlign="right">외국인</Table.ColumnHeader>
+                                <Table.ColumnHeader {...TABLE_HEADER_CELL} py={1.5} pr={3} textAlign="right">기관</Table.ColumnHeader>
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
                             {recent.slice(0, TABLE_ROWS).map(row => (
-                                <Table.Row key={row.date}>
-                                    <Table.Cell pl={3} py={1.5} fontSize="2xs" fontWeight="bold" color="fg.muted" fontFamily="mono">
+                                <Table.Row {...TABLE_ROW} key={row.date}>
+                                    <Table.Cell {...TABLE_CELL} pl={3} py={1.5} fontSize="2xs" color="fg.muted" fontFamily="mono">
                                         {mmdd(row.date)}
                                     </Table.Cell>
-                                    <Table.Cell textAlign="right" py={1.5} fontSize="2xs" fontWeight="bold" fontFamily="mono" color={netColor(row.individual_net)}>
+                                    <Table.Cell {...TABLE_NUM_CELL} py={1.5} fontSize="2xs" fontFamily="mono" color={netColor(row.individual_net)}>
                                         {row.individual_net.toLocaleString()}
                                     </Table.Cell>
-                                    <Table.Cell textAlign="right" py={1.5} fontSize="2xs" fontWeight="bold" fontFamily="mono" color={netColor(row.foreign_net)}>
+                                    <Table.Cell {...TABLE_NUM_CELL} py={1.5} fontSize="2xs" fontFamily="mono" color={netColor(row.foreign_net)}>
                                         {row.foreign_net.toLocaleString()}
                                     </Table.Cell>
-                                    <Table.Cell textAlign="right" pr={3} py={1.5} fontSize="2xs" fontWeight="bold" fontFamily="mono" color={netColor(row.institution_net)}>
+                                    <Table.Cell {...TABLE_NUM_CELL} pr={3} py={1.5} fontSize="2xs" fontFamily="mono" color={netColor(row.institution_net)}>
                                         {row.institution_net.toLocaleString()}
                                     </Table.Cell>
                                 </Table.Row>

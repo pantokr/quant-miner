@@ -5,14 +5,15 @@ DB에 없으면 api 게이트웨이를 중계 호출(게이트웨이가 KIS에�
 프론트가 쓰는 경로를 그대로 노출한다.
 """
 from datetime import datetime
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from typing import List
 
 from shared.models.stock.schema import MinuteChartRow, OhlcvRow, InvestorRow
 from shared.db.stock_minute import query_minute_range
-from shared.db.stock_ohlcv import query_ohlcv
+from shared.db.stock_ohlcv import get_ohlcv_coverage, query_ohlcv
 from shared.db.stock_investor import query_investor_trend
 from shared.services.chart.gapfill import expected_last_minute, fill_minute_gaps
+from shared.services.quote.coverage import missing_ranges
 from web.backend.gateway import proxy_get
 
 router = APIRouter(tags=["market-data (DB)"])
@@ -73,13 +74,31 @@ def ohlcv(
     period: str = Query("D"),
     save: bool = Query(True),
 ):
+    """
+    기간별 OHLCV.
+
+    DB에 뭐라도 있으면 그대로 돌려주던 예전 방식은, 최근 몇 달만 적재된 종목을
+    1년으로 조회했을 때 짧은 표를 주고 끝냈다. 요청 구간을 DB가 실제로 덮고 있는지
+    보고, 모자라면 게이트웨이가 결손분을 수집·적재한 결과를 받아 온다.
+    """
     rows = query_ohlcv(iscd, period, start, end)
-    if rows:
-        return rows
-    return proxy_get(
-        f"/stock/{iscd}/ohlcv",
-        {"start": start, "end": end, "period": period, "save": save},
-    )
+    min_date, max_date, count = get_ohlcv_coverage(iscd, period, start, end)
+
+    if missing_ranges(start, end, min_date, max_date, count):
+        try:
+            fresh = proxy_get(
+                f"/stock/{iscd}/ohlcv",
+                {"start": start, "end": end, "period": period, "save": save},
+            )
+        except HTTPException:
+            # 게이트웨이가 죽었거나 KIS에도 없는 구간 — DB에 있는 만큼은 보여 준다
+            if rows:
+                return rows
+            raise
+        if fresh:
+            return fresh
+
+    return rows
 
 
 @router.get("/stock/{iscd}/ohlcv/all", response_model=List[OhlcvRow])

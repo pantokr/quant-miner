@@ -5,7 +5,7 @@ import { Badge, Box, HStack, Icon, Tabs, Text, VStack } from "@chakra-ui/react";
 import { ChevronRight, List, TrendingUp, Users } from "lucide-react";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import { StockRankItem } from "@/types/stock";
-import { ChartPeriod, ChartStyle, PERIOD_LABELS, STYLE_LABELS, TAB_BODY_H } from "./stock-chart/constants";
+import { ChartPeriod, ChartStyle, DETAIL_CARD_H, PERIOD_LABELS, STYLE_LABELS } from "./stock-chart/constants";
 import { MinuteChart } from "./stock-chart/MinuteChart";
 import { OhlcvChart } from "./stock-chart/OhlcvChart";
 import { OrderbookTab } from "./stock-chart/OrderbookTab";
@@ -130,8 +130,17 @@ export function StockChartDetail({ stock }: StockChartDetailProps) {
     const [chartStyle, setChartStyle] = usePersistentState<ChartStyle>("chart-style", "line");
 
     if (!stock) {
+        // 고르기 전에도 카드 크기는 그대로 — 종목을 누르는 순간 패널이 커지며 튀지 않는다
         return (
-            <Box {...RAISED_CARD} p={20} textAlign="center">
+            <Box
+                {...RAISED_CARD}
+                p={6}
+                h={DETAIL_CARD_H}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                textAlign="center"
+            >
                 <VStack gap={4}>
                     <Icon as={TrendingUp} boxSize="10" color="fg.muted" opacity={0.3} />
                     <Text color="fg.subtle" fontWeight="medium">종목을 선택하여 상세 정보를 확인하세요.</Text>
@@ -148,8 +157,8 @@ export function StockChartDetail({ stock }: StockChartDetailProps) {
         router.push(`/search?code=${stock.stock_code}&name=${encodeURIComponent(stock.stock_name)}`);
 
     return (
-        <Box {...RAISED_CARD} p={6}>
-            <VStack align="stretch" gap={5}>
+        <Box {...RAISED_CARD} p={6} h={DETAIL_CARD_H} display="flex" flexDirection="column">
+            <VStack align="stretch" gap={5} flex="1" minH={0}>
                 {/* 헤더 — 누르면 이 종목의 상세 조회 화면으로 넘어간다.
                     차트 본체는 드래그·휠·탭 조작이 있어 클릭 영역을 헤더로 한정했다. */}
                 <HStack
@@ -198,9 +207,13 @@ export function StockChartDetail({ stock }: StockChartDetailProps) {
                     value={detailTab}
                     onValueChange={(e) => setDetailTab(e.value)}
                     variant="enclosed"
+                    display="flex"
+                    flexDirection="column"
+                    flex="1"
+                    minH={0}
                 >
                     {/* 탭 헤더 + 기간 스위치 */}
-                    <HStack justify="space-between" align="center" mb={2}>
+                    <HStack justify="space-between" align="center" mb={2} flexShrink={0}>
                         <Tabs.List {...TAB_TRACK}>
                             <Tabs.Trigger value="chart" borderRadius="lg" _selected={TAB_SELECTED} fontSize="xs" fontWeight="bold" px={3} gap={1} transition="all 0.15s">
                                 <Icon as={TrendingUp} boxSize="3" />차트
@@ -262,11 +275,11 @@ export function StockChartDetail({ stock }: StockChartDetailProps) {
                         </HStack>
                     </HStack>
 
-                    {/* 세 탭 모두 같은 높이의 상자를 쓴다 — 탭을 옮겨도 카드가 출렁이지 않는다.
+                    {/* 세 탭 모두 카드에 남은 자리를 그대로 채운다 — 탭을 옮겨도 카드가 출렁이지 않는다.
                         내용은 각 탭이 이 높이를 채우도록(flex) 스스로 조정한다. */}
-                    <Tabs.Content value="chart" pt={2}>
+                    <Tabs.Content value="chart" pt={2} flex="1" minH={0}>
                         {/* 차트를 파인 면 위에 앉혀서 카드가 떠 있다는 인상을 강화한다 */}
-                        <Box {...RECESSED_WELL} px={2} py={3} h={TAB_BODY_H} display="flex" flexDirection="column">
+                        <Box {...RECESSED_WELL} px={2} py={3} h="full" display="flex" flexDirection="column">
                             {chartPeriod === "minute" ? (
                                 <MinuteChart stock={stock} color={color} />
                             ) : (
@@ -275,14 +288,14 @@ export function StockChartDetail({ stock }: StockChartDetailProps) {
                         </Box>
                     </Tabs.Content>
 
-                    <Tabs.Content value="orderbook" pt={2}>
-                        <Box h={TAB_BODY_H} display="flex" flexDirection="column">
+                    <Tabs.Content value="orderbook" pt={2} flex="1" minH={0}>
+                        <Box h="full" display="flex" flexDirection="column">
                             <OrderbookTab stock={stock} />
                         </Box>
                     </Tabs.Content>
 
-                    <Tabs.Content value="investor" pt={2}>
-                        <Box h={TAB_BODY_H} display="flex" flexDirection="column">
+                    <Tabs.Content value="investor" pt={2} flex="1" minH={0}>
+                        <Box h="full" display="flex" flexDirection="column">
                             <InvestorTab stock={stock} />
                         </Box>
                     </Tabs.Content>

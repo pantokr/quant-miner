@@ -12,10 +12,21 @@ import {
     Filter,
     Inbox,
 } from "lucide-react";
+import {
+    TABLE_CELL,
+    TABLE_HEADER_CELL,
+    TABLE_HEADER_ROW,
+    TABLE_NUM_CELL,
+    TABLE_ROW,
+    TABLE_SURFACE,
+} from "@/lib/table-style";
 import { compareRows, downloadCsv, formatCell, toCsv, toNumber } from "./format";
 import { GridColumn, GridRow } from "./types";
 
 const PAGE_SIZES = [25, 50, 100, 200];
+
+/** 처음 보여 줄 행 수. 호출부가 "몇 행을 채워야 하는지" 알아야 해서 밖으로 뺀다. */
+export const DEFAULT_PAGE_SIZE = 50;
 
 interface DataGridProps {
     columns: GridColumn[];
@@ -33,6 +44,11 @@ interface DataGridProps {
     onVisualize?: (rows: GridRow[]) => void;
     /** 그래프를 그릴 수 없는 표일 때 사유 (버튼이 비활성화되고 툴팁으로 뜬다) */
     visualizeDisabledReason?: string;
+    /**
+     * 한 쪽에 보여 줄 행 수가 바뀌면 알려 준다.
+     * 받은 행이 이 수에 못 미치면 호출부가 모자란 만큼 더 받아올 수 있다.
+     */
+    onPageSizeChange?: (size: number) => void;
 }
 
 export function DataGrid({
@@ -46,11 +62,12 @@ export function DataGrid({
     signedKeys,
     onVisualize,
     visualizeDisabledReason,
+    onPageSizeChange,
 }: DataGridProps) {
     const [filter, setFilter] = useState("");
     const [sortKey, setSortKey] = useState<string | null>(null);
     const [sortDesc, setSortDesc] = useState(false);
-    const [pageSize, setPageSize] = useState(50);
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
     const [page, setPage] = useState(0);
 
     const signed = useMemo(() => new Set(signedKeys ?? []), [signedKeys]);
@@ -185,15 +202,7 @@ export function DataGrid({
             </HStack>
 
             {/* 표 */}
-            <Box
-                bg="bg.panel"
-                borderRadius="2xl"
-                borderWidth="1px"
-                borderColor="border.subtle"
-                overflow="hidden"
-                boxShadow="xs"
-                position="relative"
-            >
+            <Box {...TABLE_SURFACE} position="relative">
                 {/* 이미 표가 그려져 있으면 덮지 않고 상단 진행 바만 보여 준다.
                     (응답이 오면 표가 사라졌다 나타나지 않고 값만 교체된다) */}
                 {loading && rows.length > 0 && (
@@ -222,25 +231,26 @@ export function DataGrid({
                     </Box>
                 )}
 
-                <Box overflowX="auto" maxH="620px" overflowY="auto">
-                    <Table.Root size="sm" variant="line" stickyHeader>
+                {/* 세로로는 자르지 않는다 — 행이 몇이든 그대로 늘어놓고 페이지가 스크롤된다.
+                    표 안에 따로 스크롤 영역을 두면 페이지 스크롤과 겹쳐 어느 쪽이 움직이는지
+                    헷갈리고, 표 끝을 보려면 좁은 칸 안에서 다시 굴려야 한다.
+                    가로만 넘칠 때를 대비해 overflowX는 남긴다(열이 많은 데이터셋). */}
+                <Box overflowX="auto">
+                    <Table.Root size="sm" variant="line">
                         <Table.Header>
-                            <Table.Row bg="bg.muted">
+                            <Table.Row {...TABLE_HEADER_ROW}>
                                 {columns.map(column => {
                                     const isSorted = sortKey === column.key;
                                     const right = column.type && column.type !== "text" && column.type !== "date" && column.type !== "time";
                                     return (
                                         <Table.ColumnHeader
                                             key={column.key}
+                                            {...TABLE_HEADER_CELL}
                                             textAlign={right ? "right" : "left"}
                                             w={column.width}
                                             minW={column.width}
-                                            fontSize="2xs"
-                                            fontWeight="black"
                                             color={isSorted ? "accent.500" : "fg.muted"}
-                                            letterSpacing="wider"
                                             cursor="pointer"
-                                            whiteSpace="nowrap"
                                             userSelect="none"
                                             _hover={{ color: "accent.500" }}
                                             onClick={() => toggleSort(column.key)}
@@ -258,18 +268,14 @@ export function DataGrid({
                         </Table.Header>
                         <Table.Body>
                             {visible.map((row, i) => (
-                                <Table.Row key={i} _hover={{ bg: "bg.muted" }}>
+                                <Table.Row key={i} {...TABLE_ROW}>
                                     {columns.map(column => {
                                         const right = column.type && column.type !== "text" && column.type !== "date" && column.type !== "time";
                                         return (
                                             <Table.Cell
                                                 key={column.key}
-                                                textAlign={right ? "right" : "left"}
-                                                fontSize="xs"
-                                                fontWeight={right ? "bold" : "medium"}
+                                                {...(right ? TABLE_NUM_CELL : TABLE_CELL)}
                                                 color={cellColor(column, row) ?? "fg"}
-                                                whiteSpace="nowrap"
-                                                fontVariantNumeric="tabular-nums"
                                             >
                                                 {formatCell(column, row)}
                                             </Table.Cell>
@@ -311,7 +317,11 @@ export function DataGrid({
                             cursor="pointer"
                             bg={pageSize === size ? "accent.500" : "bg.muted"}
                             color={pageSize === size ? "white" : "fg.muted"}
-                            onClick={() => { setPageSize(size); setPage(0); }}
+                            onClick={() => {
+                                setPageSize(size);
+                                setPage(0);
+                                onPageSizeChange?.(size);
+                            }}
                         >
                             {size}
                         </Box>

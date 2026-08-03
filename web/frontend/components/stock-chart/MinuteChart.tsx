@@ -64,7 +64,7 @@ export function MinuteChart({ stock, color }: Props) {
     const yDomain = computeYDomain(numericData.map(d => d.close_price));
 
     return (
-        /* 탭 본문(TAB_BODY_H) 높이를 그대로 채운다 — 세 탭 크기를 맞추기 위함 */
+        /* 탭 본문에 주어진 높이를 그대로 채운다 — 세 탭 크기를 맞추기 위함 */
         <Box flex="1" minH={0} w="100%" position="relative">
             <RefreshButton
                 onClick={reload}

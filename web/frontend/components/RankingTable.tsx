@@ -3,6 +3,13 @@
 import { Box, Table, Text, Spinner, HStack } from "@chakra-ui/react";
 import { StockRankItem } from "@/types/stock";
 import { ArrowUp, ArrowDown } from "lucide-react";
+import {
+    TABLE_CELL,
+    TABLE_HEADER_CELL,
+    TABLE_HEADER_ROW,
+    TABLE_NUM_CELL,
+    TABLE_ROW,
+} from "@/lib/table-style";
 
 export interface SortOption {
     value: string;
@@ -41,7 +48,6 @@ export function RankingTable({
             borderRadius="xl"
             border="1px solid"
             borderColor="border.subtle"
-            boxShadow="sm"
             h={{ base: "auto", lg: "100%" }}
             display="flex"
             flexDirection="column"
@@ -82,12 +88,12 @@ export function RankingTable({
                 <Box flex="1" minH={0} overflowY="auto" maxH={{ base: "60vh", lg: "none" }}>
             <Table.Root size="sm" variant="line" stickyHeader>
                 <Table.Header>
-                    <Table.Row bg="bg.muted" borderBottom="2px solid" borderColor="border.subtle">
-                        <Table.ColumnHeader w="48px" py={2.5} pl={4} fontSize="2xs" fontWeight="800" color="fg.muted" letterSpacing="widest">#</Table.ColumnHeader>
-                        <Table.ColumnHeader py={2.5} fontSize="2xs" fontWeight="800" color="fg.muted" letterSpacing="widest">INSTRUMENT</Table.ColumnHeader>
-                        <Table.ColumnHeader textAlign="right" py={2.5} fontSize="2xs" fontWeight="800" color="fg.muted" letterSpacing="widest">LAST PRICE</Table.ColumnHeader>
-                        <Table.ColumnHeader textAlign="right" py={2.5} fontSize="2xs" fontWeight="800" color="fg.muted" letterSpacing="widest">CHANGE %</Table.ColumnHeader>
-                        <Table.ColumnHeader textAlign="right" py={2.5} pr={4} fontSize="2xs" fontWeight="800" color="fg.muted" letterSpacing="widest" display={{ base: "none", md: "table-cell" }}>
+                    <Table.Row {...TABLE_HEADER_ROW}>
+                        <Table.ColumnHeader {...TABLE_HEADER_CELL} w="48px" pl={4}>#</Table.ColumnHeader>
+                        <Table.ColumnHeader {...TABLE_HEADER_CELL}>INSTRUMENT</Table.ColumnHeader>
+                        <Table.ColumnHeader {...TABLE_HEADER_CELL} textAlign="right">LAST PRICE</Table.ColumnHeader>
+                        <Table.ColumnHeader {...TABLE_HEADER_CELL} textAlign="right">CHANGE %</Table.ColumnHeader>
+                        <Table.ColumnHeader {...TABLE_HEADER_CELL} textAlign="right" pr={4} display={{ base: "none", md: "table-cell" }}>
                             VOLUME
                         </Table.ColumnHeader>
                     </Table.Row>
@@ -107,67 +113,56 @@ export function RankingTable({
                             const isDown = changeRate < 0;
                             const volumeValue = item.volume ?? item.net_buy_qty ?? 0;
 
-                            const statusColor = isUp ? "red.500" : isDown ? "blue.500" : "fg";
-                            const statusBg = isUp ? "red.500/5" : isDown ? "blue.500/5" : "transparent";
+                            const statusColor = isUp ? "red.500" : isDown ? "blue.500" : "fg.subtle";
 
                             return (
                                 <Table.Row
+                                    {...TABLE_ROW}
                                     key={item.stock_code}
                                     onClick={() => onSelect(item)}
                                     bg={isSelected ? "accent.500/10" : "transparent"}
                                     _hover={{ bg: isSelected ? "accent.500/15" : "bg.muted" }}
-                                    transition="all 0.15s cubic-bezier(.4,0,.2,1)"
                                     cursor="pointer"
-                                    borderBottom="1px solid"
-                                    borderColor="border.subtle"
                                 >
-                                    <Table.Cell py={1.5} pl={4}>
-                                        <Text fontWeight="black" color={item.rank <= 3 ? "accent.500" : "fg.muted"} fontSize="2xs" fontFamily="mono">
-                                            {item.rank.toString().padStart(2, '0')}
-                                        </Text>
+                                    <Table.Cell {...TABLE_CELL} py={1.5} pl={4} color="fg.muted" fontFamily="mono" fontSize="2xs">
+                                        {item.rank.toString().padStart(2, "0")}
                                     </Table.Cell>
                                     {/* 종목명·코드를 한 줄에 나란히 둬서 행 높이를 절반으로 */}
-                                    <Table.Cell py={1.5}>
+                                    <Table.Cell {...TABLE_CELL} py={1.5}>
                                         <HStack gap={2} minW={0}>
-                                            <Text fontWeight="800" fontSize="xs" color="fg" letterSpacing="tight" truncate>
+                                            <Text fontWeight="semibold" fontSize="xs" color="fg" truncate>
                                                 {item.stock_name}
                                             </Text>
-                                            <Text fontSize="2xs" fontWeight="bold" color="fg.muted" fontFamily="mono" flexShrink={0}>
+                                            <Text fontSize="2xs" color="fg.muted" fontFamily="mono" flexShrink={0}>
                                                 {item.stock_code}
                                             </Text>
                                         </HStack>
                                     </Table.Cell>
-                                    <Table.Cell textAlign="right" py={1.5}>
-                                        <Text fontWeight="900" fontSize="xs" color="fg" fontFamily="mono">
-                                            {item.price.toLocaleString()}
-                                        </Text>
+                                    <Table.Cell {...TABLE_NUM_CELL} py={1.5} fontFamily="mono">
+                                        {item.price.toLocaleString()}
                                     </Table.Cell>
-                                    <Table.Cell textAlign="right" py={1.5}>
-                                        <Box
-                                            display="inline-flex"
-                                            alignItems="center"
-                                            justifyContent="flex-end"
-                                            px={2}
-                                            py={0.5}
-                                            borderRadius="md"
-                                            bg={statusBg}
-                                            color={statusColor}
-                                        >
-                                            <HStack gap={0.5}>
-                                                {isUp && <ArrowUp size={10} strokeWidth={3} />}
-                                                {isDown && <ArrowDown size={10} strokeWidth={3} />}
-                                                <Text fontWeight="900" fontSize="2xs" fontFamily="mono">
-                                                    {Math.abs(item.change_rate).toFixed(2)}%
-                                                </Text>
-                                            </HStack>
-                                        </Box>
+                                    {/* 등락은 색과 화살표로만 — 배경 칩을 걷어 행이 조용해진다 */}
+                                    <Table.Cell {...TABLE_NUM_CELL} py={1.5} color={statusColor} fontFamily="mono">
+                                        <HStack gap={0.5} justify="flex-end">
+                                            {isUp && <ArrowUp size={10} strokeWidth={2.5} />}
+                                            {isDown && <ArrowDown size={10} strokeWidth={2.5} />}
+                                            <Text fontSize="2xs" fontWeight="semibold" fontFamily="mono">
+                                                {Math.abs(item.change_rate).toFixed(2)}%
+                                            </Text>
+                                        </HStack>
                                     </Table.Cell>
-                                    <Table.Cell textAlign="right" py={1.5} pr={4} display={{ base: "none", md: "table-cell" }}>
-                                        <Text fontSize="2xs" fontWeight="bold" color="fg.subtle" fontFamily="mono">
-                                            {volumeValue > 1000000
-                                                ? `${(volumeValue / 1000000).toFixed(2)}M`
-                                                : volumeValue.toLocaleString()}
-                                        </Text>
+                                    <Table.Cell
+                                        {...TABLE_NUM_CELL}
+                                        py={1.5}
+                                        pr={4}
+                                        color="fg.subtle"
+                                        fontSize="2xs"
+                                        fontFamily="mono"
+                                        display={{ base: "none", md: "table-cell" }}
+                                    >
+                                        {volumeValue > 1000000
+                                            ? `${(volumeValue / 1000000).toFixed(2)}M`
+                                            : volumeValue.toLocaleString()}
                                     </Table.Cell>
                                 </Table.Row>
                             );

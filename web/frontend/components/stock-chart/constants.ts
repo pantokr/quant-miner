@@ -24,13 +24,15 @@ export const GRAD_ID: Record<OhlcvPeriod, string> = {
 };
 
 /**
- * 차트·호가·투자자 탭이 공유하는 본문 높이.
+ * 상세 카드의 전체 높이.
  *
- * 탭마다 내용 높이가 다르면 탭을 옮길 때마다 카드가 늘었다 줄었다 해서 오른쪽 패널이
- * 출렁인다. 세 탭 모두 이 높이에 맞춰 내용을 채우거나 줄인다.
+ * 카드 쪽을 고정하고 탭 본문이 남는 자리를 가져간다. 두 가지가 이 방식으로 풀린다 —
+ *   · 탭마다 내용 높이가 달라 탭을 옮길 때 카드가 출렁이던 것
+ *   · 종목을 고르기 전(안내 문구)과 후(차트)의 카드 높이가 달라 패널이 튀던 것
+ * 세 탭과 빈 상태 모두 이 높이 안에서 제 몫을 채운다.
  */
-export const TAB_BODY_PX = 360;
-export const TAB_BODY_H = `${TAB_BODY_PX}px`;
+export const DETAIL_CARD_PX = 560;
+export const DETAIL_CARD_H = `${DETAIL_CARD_PX}px`;
 
 /** 축 라벨이 잘리지 않도록 사방 여백 (특히 아래·오른쪽) */
 export const CHART_MARGIN = { top: 10, right: 24, left: 12, bottom: 8 };

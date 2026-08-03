@@ -138,7 +138,9 @@ class DailyCcldSummary(BaseModel):
 
 class DailyCcldResponse(KisApiResponse):
     output1: List[DailyCcldItem] = []
-    output2: List[DailyCcldSummary] = []
+    # 이 TR의 output2는 리스트가 아니라 합계 객체 하나로 온다. List로 받으면
+    # 응답을 파싱하다 ValidationError가 나서 계좌 화면 전체가 500으로 죽는다.
+    output2: DailyCcldSummary = DailyCcldSummary()
 
 
 # ── 주식당일분봉조회 (inquire_time_itemchartprice) ──────────

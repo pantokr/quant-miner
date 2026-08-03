@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { extractDetail } from "@/lib/api-error";
 
 interface Loaded {
     /** 이 결과를 만들어 낸 요청 URL — 현재 url과 다르면 아직 로딩 중이라는 뜻 */
@@ -21,29 +22,6 @@ export interface DatasetState {
 }
 
 const EMPTY: Loaded = { url: null, data: null, error: null, fetchedAt: null };
-
-/**
- * FastAPI detail 추출.
- *
- * web/backend는 게이트웨이 응답 본문을 통째로 detail에 담아 중계하므로 detail이 다시
- * `{"detail": "..."}` JSON 문자열인 경우가 있다. 사용자에게는 가장 안쪽 메시지만 보인다.
- */
-function extractDetail(body: string, status: number): string {
-    let current: unknown = body;
-    for (let depth = 0; depth < 3; depth++) {
-        if (typeof current !== "string") break;
-        try {
-            const parsed = JSON.parse(current);
-            const detail = (parsed as { detail?: unknown })?.detail;
-            if (detail === undefined) break;
-            current = detail;
-        } catch {
-            break;
-        }
-    }
-    if (typeof current === "string" && current.trim()) return current.trim();
-    return body.trim() ? body.slice(0, 200) : `HTTP ${status}`;
-}
 
 /**
  * 조회 URL이 바뀔 때만 요청하는 훅.

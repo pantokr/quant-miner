@@ -124,7 +124,7 @@ export function OhlcvChart({ stock, period, color, style }: Props) {
     const widthLabel = period === "daily" ? `${winSize}일` : period === "monthly" ? `${winSize}개월` : `${winSize}년`;
 
     return (
-        /* 탭 본문(TAB_BODY_H) 높이를 그대로 채운다 — 세 탭 크기를 맞추기 위함 */
+        /* 탭 본문에 주어진 높이를 그대로 채운다 — 세 탭 크기를 맞추기 위함 */
         <VStack align="stretch" gap={2} flex="1" minH={0}>
             <VStack align="stretch" gap={2} px={1} flexShrink={0}>
                 <HStack justify="space-between" align="center">

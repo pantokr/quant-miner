@@ -1,6 +1,14 @@
 "use client"
 
-import { Box, Heading, Table, Badge } from "@chakra-ui/react"
+import { Box, Heading, Table, Text } from "@chakra-ui/react"
+import {
+  TABLE_CELL,
+  TABLE_HEADER_CELL,
+  TABLE_HEADER_ROW,
+  TABLE_NUM_CELL,
+  TABLE_ROW,
+  TABLE_SURFACE,
+} from "@/lib/table-style"
 
 const trades = [
   { date: "2026-04-14", strategy: "모멘텀", symbol: "AAPL", side: "매수", pnl: 1250000, status: "완료" },
@@ -14,49 +22,42 @@ const trades = [
 ]
 
 function formatKRW(value: number) {
-  const sign = value >= 0 ? "+" : ""
+  const sign = value >= 0 ? "+" : "-"
   return `${sign}₩${Math.abs(value).toLocaleString("ko-KR")}`
 }
 
 export function DataTable() {
   return (
-    <Box bg="white" borderRadius="lg" borderWidth="1px" borderColor="gray.200" p={5}>
-      <Heading size="sm" color="gray.700" mb={4}>
+    <Box {...TABLE_SURFACE} p={0}>
+      <Heading size="sm" color="fg" fontWeight="bold" px={5} pt={5} pb={3}>
         최근 거래 내역
       </Heading>
-      <Table.Root size="sm">
+      <Table.Root size="sm" variant="line">
         <Table.Header>
-          <Table.Row bg="gray.50">
-            <Table.ColumnHeader color="gray.500" fontWeight="600" fontSize="xs">날짜</Table.ColumnHeader>
-            <Table.ColumnHeader color="gray.500" fontWeight="600" fontSize="xs">전략</Table.ColumnHeader>
-            <Table.ColumnHeader color="gray.500" fontWeight="600" fontSize="xs">종목</Table.ColumnHeader>
-            <Table.ColumnHeader color="gray.500" fontWeight="600" fontSize="xs">방향</Table.ColumnHeader>
-            <Table.ColumnHeader color="gray.500" fontWeight="600" fontSize="xs" textAlign="right">손익</Table.ColumnHeader>
-            <Table.ColumnHeader color="gray.500" fontWeight="600" fontSize="xs">상태</Table.ColumnHeader>
+          <Table.Row {...TABLE_HEADER_ROW}>
+            <Table.ColumnHeader {...TABLE_HEADER_CELL} pl={5}>날짜</Table.ColumnHeader>
+            <Table.ColumnHeader {...TABLE_HEADER_CELL}>전략</Table.ColumnHeader>
+            <Table.ColumnHeader {...TABLE_HEADER_CELL}>종목</Table.ColumnHeader>
+            <Table.ColumnHeader {...TABLE_HEADER_CELL}>방향</Table.ColumnHeader>
+            <Table.ColumnHeader {...TABLE_HEADER_CELL} textAlign="right">손익</Table.ColumnHeader>
+            <Table.ColumnHeader {...TABLE_HEADER_CELL} pr={5}>상태</Table.ColumnHeader>
           </Table.Row>
         </Table.Header>
         <Table.Body>
           {trades.map((trade, i) => (
-            <Table.Row key={i} _hover={{ bg: "gray.50" }}>
-              <Table.Cell fontSize="sm" color="gray.500">{trade.date}</Table.Cell>
-              <Table.Cell fontSize="sm" fontWeight="500">{trade.strategy}</Table.Cell>
-              <Table.Cell fontSize="sm" fontWeight="600" color="gray.700">{trade.symbol}</Table.Cell>
-              <Table.Cell>
-                <Badge
-                  colorPalette={trade.side === "매수" ? "blue" : "orange"}
-                  size="sm"
-                  variant="subtle"
-                >
-                  {trade.side}
-                </Badge>
+            <Table.Row {...TABLE_ROW} key={i}>
+              <Table.Cell {...TABLE_CELL} pl={5} color="fg.muted" fontFamily="mono">{trade.date}</Table.Cell>
+              <Table.Cell {...TABLE_CELL}>{trade.strategy}</Table.Cell>
+              <Table.Cell {...TABLE_CELL} fontWeight="semibold" fontFamily="mono">{trade.symbol}</Table.Cell>
+              {/* 방향·상태는 배지 대신 색과 굵기로 — 알약이 줄마다 박히면 표가 시끄럽다 */}
+              <Table.Cell {...TABLE_CELL} fontWeight="semibold" color={trade.side === "매수" ? "red.500" : "blue.500"}>
+                {trade.side}
               </Table.Cell>
-              <Table.Cell textAlign="right" fontSize="sm" fontWeight="600" color={trade.pnl >= 0 ? "accent.600" : "red.500"}>
+              <Table.Cell {...TABLE_NUM_CELL} fontWeight="semibold" color={trade.pnl >= 0 ? "red.500" : "blue.500"}>
                 {formatKRW(trade.pnl)}
               </Table.Cell>
-              <Table.Cell>
-                <Badge colorPalette="gray" size="sm" variant="subtle">
-                  {trade.status}
-                </Badge>
+              <Table.Cell {...TABLE_CELL} pr={5}>
+                <Text fontSize="2xs" color="fg.muted">{trade.status}</Text>
               </Table.Cell>
             </Table.Row>
           ))}

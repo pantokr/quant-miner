@@ -29,7 +29,8 @@ _FINANCE_TYPES = [
 @router.get("/{iscd}/info/basic", response_model=Dict[str, Any])
 def stock_basic_info(
     iscd: str,
-    prdt_type_cd: str = Query("300", description="300:주식/ETF/ETN/ELW  302:채권  306:ELS"),
+    prdt_type_cd: str = Query(
+        "300", description="300:주식/ETF/ETN/ELW  302:채권  306:ELS"),
     save: bool = Query(True),
     from_db: bool = Query(False),
 ):
@@ -95,32 +96,33 @@ def dividend(
     save: bool = Query(True),
     from_db: bool = Query(False),
 ):
-    """배당금 조회"""
-    if from_db:
-        rows = get_dividend_db(iscd)
-        return [
-            DividendRow(
-                stock_code=r["stock_code"],
-                record_date=r["record_date"],
-                amount_per_share=r.get("amount_per_share", ""),
-                dividend_type=r.get("dividend_type", ""),
-                pay_date=r.get("pay_date"),
-            )
-            for r in rows
-        ]
+    """배당금 조회 (DB 우선, 없으면 KIS 수집)"""
+    # 1. DB 먼저 조회 (전체 이력 캐시 구조라 기간 필터 없이 가져와서 메모리 필터)
+    rows = get_dividend_db(iscd)
 
-    rows = get_dividend(iscd, start, end, save=save)
-    if not rows:
+    def within(d: str) -> bool:
+        return start <= d.replace("-", "") <= end
+
+    cached = [r for r in rows if within(r["record_date"])]
+
+    # 2. 데이터 부족 시 KIS 수집
+    if not cached and not from_db:
+        get_dividend(iscd, start, end, save=save)
+        rows = get_dividend_db(iscd)
+        cached = [r for r in rows if within(r["record_date"])]
+
+    if not cached:
         raise HTTPException(status_code=404, detail="배당 데이터 없음")
+
     return [
         DividendRow(
-            stock_code=iscd,
-            record_date=r.get("record_date") or r.get("bass_dt", ""),
-            amount_per_share=r.get("per_sto_divi_amt", ""),
-            dividend_type=r.get("divi_kind", ""),
-            pay_date=r.get("divi_pay_dt"),
+            stock_code=r["stock_code"],
+            record_date=str(r["record_date"]),
+            amount_per_share=str(r.get("amount_per_share", "")),
+            dividend_type=str(r.get("dividend_type", "")),
+            pay_date=str(r.get("pay_date") or ""),
         )
-        for r in rows
+        for r in cached
     ]
 
 

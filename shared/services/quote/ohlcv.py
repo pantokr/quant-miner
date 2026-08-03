@@ -2,15 +2,25 @@
 import requests
 import logging
 from datetime import datetime, timedelta
-from typing import List
+from typing import Dict, List, Tuple
 
 from shared.models.stock import KisCommonHeader, PeriodOhlcvRequest, OhlcvItem, OhlcvResponse
 from shared.kis_auth import APP_KEY, APP_SECRET, BASE_URL
 from shared.kis_auth import get_valid_token
-from shared.db.stock_ohlcv import upsert_ohlcv
+from shared.db.stock_ohlcv import get_ohlcv_coverage, upsert_ohlcv
+from shared.services.quote.coverage import missing_ranges
 
 # KIS API 1회 호출 최대 반환 레코드 수 (경험적 한계)
 _PAGE_SIZE = 100
+
+# 요청 구간이 100건을 넘으면 KIS는 최근 100건만 주고 앞쪽을 조용히 버린다.
+# 그래서 period별로 100건에 못 미치도록 달력 일수를 잘라 순방향으로 이어 받는다.
+# (일봉 120일 ≈ 영업일 85일, 주봉 600일 ≈ 85주, 월봉 2500일 ≈ 82개월)
+_CHUNK_DAYS: Dict[str, int] = {"D": 120, "W": 600, "M": 2500, "Y": 30000}
+_DEFAULT_CHUNK_DAYS = 120
+
+# 이만큼 연속으로 빈 청크가 나오면 상장 전 구간에 들어선 것으로 보고 멈춘다.
+_EMPTY_CHUNK_LIMIT = 3
 
 
 def _fetch_ohlcv_page(
@@ -45,6 +55,49 @@ def _fetch_ohlcv_page(
     return result.output2
 
 
+def _collect_range(
+    token: str,
+    iscd: str,
+    start_date: str,
+    end_date: str,
+    period: str,
+) -> List[OhlcvItem]:
+    """[start_date, end_date]를 청크로 나눠 수집 (일자 오름차순, 중복 제거).
+
+    최근 쪽부터 거슬러 올라간다. KIS는 구간이 넓으면 최근 100건만 주므로 방향 자체는
+    상관없지만, 상장 전까지 내려가면 빈 응답이 이어지는 것으로 끝을 알 수 있다.
+    1990년부터 순방향으로 훑으면 상장 전 20년을 헛되이 두드리게 된다.
+    """
+    chunk = timedelta(days=_CHUNK_DAYS.get(period, _DEFAULT_CHUNK_DAYS))
+    first = datetime.strptime(start_date, "%Y%m%d")
+    cur_end = datetime.strptime(end_date, "%Y%m%d")
+
+    items: List[OhlcvItem] = []
+    seen: set[str] = set()
+    empty_streak = 0
+
+    while cur_end >= first:
+        cur_start = max(cur_end - chunk + timedelta(days=1), first)
+        page = _fetch_ohlcv_page(
+            token, iscd,
+            cur_start.strftime("%Y%m%d"), cur_end.strftime("%Y%m%d"), period,
+        )
+        fresh = [i for i in page if i.stck_bsop_date and i.stck_bsop_date not in seen]
+        items.extend(fresh)
+        seen.update(i.stck_bsop_date for i in fresh)
+
+        # 상장 전이면 계속 빈 응답이다. 거래정지로 한두 청크가 빌 수는 있으니
+        # 연속으로 비었을 때만 끝으로 본다.
+        empty_streak = 0 if page else empty_streak + 1
+        if empty_streak >= _EMPTY_CHUNK_LIMIT:
+            break
+
+        cur_end = cur_start - timedelta(days=1)
+
+    items.sort(key=lambda x: x.stck_bsop_date)
+    return items
+
+
 def get_period_ohlcv(
     iscd: str,
     start_date: str,
@@ -54,17 +107,72 @@ def get_period_ohlcv(
     save: bool = False,
 ) -> List[OhlcvItem]:
     """
-    국내주식기간별시세 단일 구간 조회
+    국내주식기간별시세 구간 조회
 
     Args:
         period: D(일) W(주) M(월) Y(년)
         save: True 시 DB 적재
     """
     token = access_token or get_valid_token()
-    items = _fetch_ohlcv_page(token, iscd, start_date, end_date, period)
+    items = _collect_range(token, iscd, start_date, end_date, period)
     if save and items:
         upsert_ohlcv(iscd, period, [i.model_dump() for i in items])
     return items
+
+
+# 이미 시도한 구간을 잠깐 기억한다. 상장 전 구간처럼 KIS에도 없는 기간이 요청에 섞이면
+# 커버리지는 영원히 모자란 상태로 남아, 없으면 조회할 때마다 KIS를 다시 때리게 된다.
+_ATTEMPT_TTL = timedelta(minutes=10)
+_attempts: Dict[Tuple[str, str, str, str], datetime] = {}
+
+
+def _should_attempt(key: Tuple[str, str, str, str]) -> bool:
+    now = datetime.now()
+    last = _attempts.get(key)
+    if last and now - last < _ATTEMPT_TTL:
+        return False
+    _attempts[key] = now
+    return True
+
+
+def ensure_ohlcv_coverage(
+    iscd: str,
+    start_date: str,
+    end_date: str,
+    period: str = "D",
+    access_token: str = None,
+    save: bool = True,
+) -> int:
+    """요청 구간 중 DB에 빠진 부분만 KIS에서 받아 적재하고, 새로 받은 건수를 반환.
+
+    DB에 있는 만큼만 돌려주면 "1년을 조회했는데 석 달만 나온다"가 된다. 그렇다고
+    매번 전 구간을 다시 받으면 느리므로, 앞/뒤로 모자란 구간만 골라서 채운다.
+    """
+    gaps = missing_ranges(
+        start_date, end_date,
+        *get_ohlcv_coverage(iscd, period, start_date, end_date),
+    )
+    if not gaps:
+        return 0
+
+    token = access_token or get_valid_token()
+    if not token:
+        raise RuntimeError("KIS 토큰 발급 실패")
+
+    filled = 0
+    for gap_start, gap_end in gaps:
+        if not _should_attempt((iscd, period, gap_start, gap_end)):
+            logging.debug(f"[{iscd}] {gap_start}~{gap_end} 최근 시도함 — 재수집 생략")
+            continue
+        items = _collect_range(token, iscd, gap_start, gap_end, period)
+        logging.info(
+            f"[{iscd}] {period}봉 결손 {gap_start}~{gap_end} → {len(items)}건 수집"
+        )
+        if items and save:
+            upsert_ohlcv(iscd, period, [i.model_dump() for i in items])
+        filled += len(items)
+
+    return filled
 
 
 def get_ohlcv_all(
@@ -77,7 +185,9 @@ def get_ohlcv_all(
     """
     start_date 부터 오늘까지 전체 OHLCV 수집 (페이지네이션 자동 처리)
 
-    KIS API는 1회 조회에 ~100건 반환. 날짜 범위를 청크로 나눠 순방향으로 수집.
+    예전에는 3년씩 끊어 요청했는데, KIS가 한 번에 100건까지만 주므로 일봉 기준
+    청크마다 뒤쪽 100일만 오고 나머지 2년 반이 조용히 비었다. 청크 크기는
+    _CHUNK_DAYS가 period별로 100건 미만이 되도록 정한다.
 
     Args:
         iscd      : 종목코드
@@ -88,41 +198,10 @@ def get_ohlcv_all(
         base_date 오름차순 OhlcvItem 리스트
     """
     token = access_token or get_valid_token()
-
     today = datetime.today().strftime("%Y%m%d")
-    all_items: List[OhlcvItem] = []
-    seen_dates: set[str] = set()
-
-    cur_start = start_date
-    chunk_years = 3  # 한 번에 3년치씩 요청
 
     logging.info(f"[{iscd}] OHLCV 전체 수집 시작 ({start_date} ~ {today})")
-
-    while cur_start <= today:
-        # 청크 종료일: cur_start + chunk_years년
-        cur_start_dt = datetime.strptime(cur_start, "%Y%m%d")
-        cur_end_dt = min(
-            cur_start_dt.replace(year=cur_start_dt.year + chunk_years),
-            datetime.strptime(today, "%Y%m%d"),
-        )
-        cur_end = cur_end_dt.strftime("%Y%m%d")
-
-        items = _fetch_ohlcv_page(token, iscd, cur_start, cur_end, period)
-        new_items = [i for i in items if i.stck_bsop_date not in seen_dates]
-
-        if new_items:
-            all_items.extend(new_items)
-            seen_dates.update(i.stck_bsop_date for i in new_items)
-            logging.info(f"  {cur_start}~{cur_end}: {len(new_items)}건 수집")
-        else:
-            logging.debug(f"  {cur_start}~{cur_end}: 데이터 없음")
-
-        # 다음 청크: cur_end + 1일
-        next_start_dt = cur_end_dt + timedelta(days=1)
-        cur_start = next_start_dt.strftime("%Y%m%d")
-
-    # base_date 오름차순 정렬
-    all_items.sort(key=lambda x: x.stck_bsop_date)
+    all_items = _collect_range(token, iscd, start_date, today, period)
     logging.info(f"[{iscd}] OHLCV 총 {len(all_items)}건 수집 완료")
     if save and all_items:
         upsert_ohlcv(iscd, period, [i.model_dump() for i in all_items])

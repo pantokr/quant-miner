@@ -7,8 +7,10 @@ import {
 import {
     AreaChart, BarChart3, CandlestickChart, LineChart, ScatterChart, Table2, Trash2,
 } from "lucide-react";
-import { ChartCanvas, ChartKind, OhlcKeys } from "@/components/visualize/ChartCanvas";
+import { ChartCanvas, ChartKind, MAX_SEPARATE_AXES, OhlcKeys, YMode } from "@/components/visualize/ChartCanvas";
+import { canIndexSeries, magnitudeGap } from "@/components/visualize/axisScale";
 import { ParsedTable, fromRecords, parseTable } from "@/components/visualize/parseTable";
+import { correlation, correlationLabel } from "@/components/visualize/stats";
 import { HANDOFF_KEY } from "@/components/visualize/handoff";
 import { DataGrid } from "@/components/datagrid/DataGrid";
 import { GridColumn } from "@/components/datagrid/types";
@@ -21,6 +23,21 @@ const AXIS_LIKE = /(^|_)(date|time|dt|period|yymm|일자|시각|기간|단계|�
 /** 숫자로 읽히지만 값이 아닌 식별자 열 — Y축 기본 선택에서 제외 */
 const ID_LIKE = /(^|_)(code|no|id|종목코드)$|^stock_code$|^sht_cd$/i;
 
+/**
+ * 한 축에 겹쳐도 되는 크기 차이의 상한.
+ * 이 배수를 넘으면 작은 쪽이 바닥에 눌려 직선이 된다 (종가 20만 vs 거래량 6천만).
+ */
+const SCALE_GAP_LIMIT = 25;
+
+const Y_MODES: { value: YMode; label: string; hint: string }[] = [
+    { value: "shared", label: "공통 축", hint: "눈금 하나에 그대로 올려 실제 크기를 견줍니다." },
+    { value: "separate", label: "개별 축", hint: "열마다 제 범위에 맞춰 늘려 그립니다 — 크기는 버리고 오르내린 모양만 견줍니다. 눈금 자리가 좌·우 둘뿐이라 2개까지." },
+    { value: "index", label: "지수 (첫 값 = 100)", hint: "첫 값 대비 등락률을 한 축에서 견줍니다." },
+];
+
+/** 관계를 물어볼 만한 짝의 수 — 기준 열(첫 번째)과 나머지를 하나씩 견준다 */
+const MAX_PAIRS = 3;
+
 const SAMPLE = `일자,종가,거래량
 20260721,265000,18420111
 20260722,258500,15233402
@@ -32,7 +49,7 @@ const SAMPLE = `일자,종가,거래량
 
 const KINDS: { value: ChartKind; label: string; icon: typeof LineChart; hint: string }[] = [
     { value: "line", label: "선", icon: LineChart, hint: "시간에 따른 추세" },
-    { value: "candle", label: "캔들", icon: CandlestickChart, hint: "시·고·저·종가를 한 봉으로 (상승 빨강 / 하락 파랑)" },
+    { value: "candle", label: "캔들", icon: CandlestickChart, hint: "시·고·저·종가를 한 봉으로 (종가가 시가보다 높으면 빨강, 낮으면 파랑)" },
     { value: "area", label: "영역", icon: AreaChart, hint: "단일 시리즈 추세" },
     { value: "bar", label: "막대", icon: BarChart3, hint: "항목 간 크기 비교" },
     { value: "scatter", label: "산점도", icon: ScatterChart, hint: "두 값의 관계" },
@@ -91,6 +108,7 @@ export default function VisualizePage() {
     const [xKey, setXKey] = useState("");
     const [yKeys, setYKeys] = useState<string[]>([]);
     const [sortByValue, setSortByValue] = useState(false);
+    const [yMode, setYMode] = useState<YMode>("shared");
     const [source, setSource] = useState("");
 
     /** 파싱 결과를 싣고 X/Y 기본 선택을 잡는다. */
@@ -149,10 +167,16 @@ export default function VisualizePage() {
         setRaw(""); setTable(EMPTY); setXKey(""); setYKeys([]); setSource("");
     };
 
-    const seriesCap = kind === "scatter" ? MAX_SERIES_ALL_PAIRS : MAX_SERIES;
-    // 산점도로 바꾸면 상한이 3으로 줄어든다 — 선택을 지우지 않고 그릴 때만 잘라 낸다.
-    // (선 차트로 돌아오면 원래 고른 시리즈가 그대로 살아난다)
-    const activeY = yKeys.slice(0, seriesCap);
+    // 개별 축은 눈금 자리가 좌·우 둘뿐이라 상한이 가장 낮다.
+    const separable = kind !== "candle" && kind !== "bar";
+    const separating = separable && yMode === "separate";
+    const seriesCap =
+        separating ? MAX_SEPARATE_AXES
+            : kind === "scatter" ? MAX_SERIES_ALL_PAIRS
+                : MAX_SERIES;
+    // 상한이 줄어드는 쪽으로 바꿔도 선택은 지우지 않고 그릴 때만 잘라 낸다.
+    // (공통 축이나 선 차트로 돌아오면 원래 고른 시리즈가 그대로 살아난다)
+    const activeY = useMemo(() => yKeys.slice(0, seriesCap), [yKeys, seriesCap]);
     const atCap = activeY.length >= seriesCap;
 
     const toggleY = (key: string) => {
@@ -174,6 +198,39 @@ export default function VisualizePage() {
 
     const numericColumns = table.columns.filter(c => c.numeric);
     const ohlc = useMemo(() => detectOhlc(table.columns), [table.columns]);
+
+    /**
+     * 자릿수가 다른 열을 한 축에 겹치면 작은 쪽이 바닥에 눌려 직선이 된다.
+     * 막대는 길이가 곧 크기라 축을 열마다 따로 잡으면 거짓말이 되므로 공통 축만 쓴다.
+     */
+    const comparable = separable && activeY.length > 1;
+    const canIndex = useMemo(
+        () => comparable && canIndexSeries(table.rows, activeY),
+        [comparable, table.rows, activeY],
+    );
+    const scaleGap = useMemo(
+        () => (comparable ? magnitudeGap(table.rows, activeY) : 1),
+        [comparable, table.rows, activeY],
+    );
+
+    // 쓸 수 없는 모드가 남아 있으면(열이나 차트를 바꿨을 때) 공통 축으로 돌린다
+    const activeMode: YMode =
+        !comparable || (yMode === "index" && !canIndex) ? "shared" : yMode;
+
+    /**
+     * 축을 열마다 따로 잡으면 두 선을 맞추는 기준이 임의라, 눈으로만 보면 없는 관계도
+     * 있어 보인다. 그래서 기준 열(첫 번째)과의 상관계수를 함께 띄운다 —
+     * "닮아 보인다"와 "닮았다"를 가르는 건 이 숫자다.
+     */
+    const pairs = useMemo(() => {
+        if (kind === "candle" || activeY.length < 2) return [];
+        const [base, ...rest] = activeY;
+        return rest.slice(0, MAX_PAIRS).map(key => ({
+            key,
+            base,
+            r: correlation(table.rows, base, key),
+        }));
+    }, [table.rows, activeY, kind]);
 
     return (
         <Box p={{ base: 6, lg: 10 }} bg="bg.main" minH="100%">
@@ -294,7 +351,9 @@ export default function VisualizePage() {
                                             </Text>
                                             <Text fontSize="2xs" fontWeight="bold" color={atCap ? "orange.500" : "fg.subtle"}>
                                                 {activeY.length} / {seriesCap}
-                                                {kind === "scatter" && " · 산점도는 3개까지"}
+                                                {separating
+                                                    ? ` · 개별 축은 ${MAX_SEPARATE_AXES}개까지`
+                                                    : kind === "scatter" ? " · 산점도는 3개까지" : ""}
                                             </Text>
                                         </HStack>
                                         <HStack gap={2} flexWrap="wrap">
@@ -314,7 +373,9 @@ export default function VisualizePage() {
                                         </HStack>
                                         {atCap && (
                                             <Text fontSize="2xs" color="orange.500" fontWeight="bold">
-                                                색만으로 구분할 수 있는 한도입니다. 더 보려면 차트를 나눠 그리세요.
+                                                {separating
+                                                    ? "눈금을 놓을 자리가 그림 좌·우 둘뿐입니다. 셋 이상을 견주려면 공통 축이나 지수로 바꾸세요."
+                                                    : "색만으로 구분할 수 있는 한도입니다. 더 보려면 차트를 나눠 그리세요."}
                                             </Text>
                                         )}
                                     </VStack>
@@ -325,6 +386,38 @@ export default function VisualizePage() {
                                                 값 큰 순 정렬
                                             </Chip>
                                         </HStack>
+                                    )}
+
+                                    {comparable && (
+                                        <VStack align="start" gap={2}>
+                                            <HStack gap={2} flexWrap="wrap">
+                                                <Text fontSize="2xs" fontWeight="black" color="fg.muted" letterSpacing="wider">
+                                                    Y축 맞춤
+                                                </Text>
+                                                {scaleGap >= SCALE_GAP_LIMIT && activeMode === "shared" && (
+                                                    <Text fontSize="2xs" fontWeight="bold" color="orange.500">
+                                                        크기가 약 {Math.round(scaleGap).toLocaleString()}배 차이 — 작은 쪽이 바닥에 눌립니다
+                                                    </Text>
+                                                )}
+                                            </HStack>
+                                            <HStack gap={2} flexWrap="wrap">
+                                                {Y_MODES.map(m => (
+                                                    <Chip
+                                                        key={m.value}
+                                                        active={activeMode === m.value}
+                                                        disabled={m.value === "index" && !canIndex}
+                                                        onClick={() => setYMode(m.value)}
+                                                    >
+                                                        {m.label}
+                                                    </Chip>
+                                                ))}
+                                            </HStack>
+                                            <Text fontSize="2xs" color="fg.subtle" fontWeight="medium">
+                                                {!canIndex && yMode === "index"
+                                                    ? "0 이하 값이 있는 열은 지수로 환산할 수 없습니다."
+                                                    : Y_MODES.find(m => m.value === activeMode)?.hint}
+                                            </Text>
+                                        </VStack>
                                     )}
                                 </VStack>
                             </Grid>
@@ -339,6 +432,8 @@ export default function VisualizePage() {
                             </Text>
                             <Text fontSize="xs" color="fg.subtle" fontWeight="medium" mb={4}>
                                 {xKey && `${xKey} 기준`}
+                                {activeMode === "separate" && " · 열마다 제 범위에 맞춘 축 (눈금 색 = 선 색)"}
+                                {activeMode === "index" && " · 첫 값을 100으로 놓은 지수"}
                             </Text>
                             <ChartCanvas
                                 kind={kind}
@@ -347,7 +442,43 @@ export default function VisualizePage() {
                                 yKeys={activeY}
                                 sortByValue={sortByValue}
                                 ohlc={ohlc}
+                                yMode={activeMode}
                             />
+
+                            {/* 모양이 닮았는지는 눈이 아니라 이 숫자가 답한다.
+                                개별 축은 두 선을 맞추는 기준이 임의라 눈대중이 특히 잘 속는다. */}
+                            {pairs.length > 0 && (
+                                <VStack align="start" gap={1} mt={4}>
+                                    {pairs.map(({ base, key, r }) => (
+                                        <HStack key={key} gap={2} flexWrap="wrap">
+                                            <Text fontSize="2xs" fontWeight="bold" color="fg.muted">
+                                                {base} ↔ {key}
+                                            </Text>
+                                            {r === null ? (
+                                                <Text fontSize="2xs" fontWeight="bold" color="fg.subtle">
+                                                    상관계수를 낼 수 없습니다 (겹치는 값이 3개 미만이거나 한쪽이 상수)
+                                                </Text>
+                                            ) : (
+                                                <>
+                                                    <Text fontSize="2xs" fontWeight="black" color="fg" fontFamily="mono">
+                                                        r = {r.toFixed(2)}
+                                                    </Text>
+                                                    <Text
+                                                        fontSize="2xs"
+                                                        fontWeight="bold"
+                                                        color={Math.abs(r) >= 0.7 ? "accent.500" : "fg.subtle"}
+                                                    >
+                                                        {correlationLabel(r)}
+                                                    </Text>
+                                                </>
+                                            )}
+                                        </HStack>
+                                    ))}
+                                    <Text fontSize="2xs" color="fg.muted" fontWeight="medium">
+                                        r은 두 열이 함께 오르내린 정도(-1 ~ 1)입니다. 인과는 말해 주지 않습니다.
+                                    </Text>
+                                </VStack>
+                            )}
                         </Box>
 
                         {/* 원본 표 — 색 대비가 낮은 슬롯을 쓰는 라이트 모드의 보완 수단 */}

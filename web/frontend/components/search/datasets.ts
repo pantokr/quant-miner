@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { FINANCE_API, STOCK_API } from "@/lib/api-config";
+import { canWiden, daysAgo, widenStart, ymd } from "./dateRange";
 import { GridColumn, GridRow } from "@/components/datagrid/types";
 import { FINANCE_LABELS, INFO_LABELS, RATIO_FIELDS, labelOf } from "./labels";
 
@@ -50,16 +51,9 @@ export const PERIOD_OPTIONS = [
 ];
 
 // ── 날짜 유틸 ─────────────────────────────────────────────
+// 계산은 dateRange.ts에 있다. 기존 호출부가 여기서 계속 가져다 쓰도록 다시 내보낸다.
 
-export function ymd(date: Date): string {
-    return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
-}
-
-export function daysAgo(days: number): string {
-    const d = new Date();
-    d.setDate(d.getDate() - days);
-    return ymd(d);
-}
+export { canWiden, daysAgo, widenStart, ymd };
 
 // ── 데이터셋 정의 ──────────────────────────────────────────
 
@@ -88,8 +82,12 @@ const unwrapData = (json: unknown): GridRow[] => {
     return Array.isArray(data) ? (data as GridRow[]) : [];
 };
 
+/**
+ * KIS 등락 구분 코드(prdy_vrss_sign).
+ * 방향은 글자 대신 화살표로 — 표에서 한 칸으로 읽히고, 옆 칸의 전일대비 부호와 어긋나지 않는다.
+ */
 const CHANGE_SIGN: Record<string, string> = {
-    "1": "상한", "2": "상승", "3": "보합", "4": "하한", "5": "하락",
+    "1": "▲ 상한", "2": "▲", "3": "보합", "4": "▼ 하한", "5": "▼",
 };
 
 export const DATASETS: Dataset[] = [
