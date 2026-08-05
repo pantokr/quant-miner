@@ -56,6 +56,12 @@ export const FINANCE_LABELS: Record<string, string> = {
     bram_depn: "차입금의존도",
     crnt_rate: "유동비율",
     quck_rate: "당좌비율",
+
+    // 기타주요비율
+    payout_rate: "배당성향",
+    eva: "EVA",
+    ebitda: "EBITDA",
+    ev_ebitda: "EV/EBITDA",
 };
 
 /** 값이 비율(%)인 필드 — 표시 포맷을 나누기 위해 사용. */
@@ -64,6 +70,8 @@ export const RATIO_FIELDS = new Set([
     "roe_val", "rsrv_rate", "lblt_rate",
     "cptl_ntin_rate", "self_cptl_ntin_inrt", "sale_ntin_rate", "sale_totl_rate",
     "bram_depn", "crnt_rate", "quck_rate",
+    // EBITDA·EVA는 금액(억원), EV/EBITDA는 배수라 %가 아니다 — 배당성향만 비율이다
+    "payout_rate",
 ]);
 
 export const INFO_LABELS: Record<string, string> = {

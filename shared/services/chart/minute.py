@@ -15,6 +15,7 @@ from shared.models.stock import (
     MinuteDailyChartResponse,
     MinuteDailyChartItem,
 )
+from shared.config import KIS_TIMEOUT
 from shared.kis_auth import APP_KEY, APP_SECRET, BASE_URL
 from shared.kis_auth import get_valid_token
 from shared.db.stock_minute import (
@@ -59,6 +60,7 @@ def _fetch_page(
         f"{BASE_URL}{_API_PATH}",
         headers=header.to_dict(),
         params=req.model_dump(),
+        timeout=KIS_TIMEOUT,
     )
     if res.status_code != 200:
         logging.error(f"HTTP 오류: {res.status_code} {res.text}")

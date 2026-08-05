@@ -4,6 +4,7 @@ import requests
 from typing import Any, Dict, List
 
 from shared.models.stock import KisCommonHeader
+from shared.config import KIS_TIMEOUT
 from shared.kis_auth import APP_KEY, APP_SECRET, BASE_URL
 from shared.kis_auth import get_valid_token
 from shared.db.stock_finance import upsert_finance, query_finance
@@ -36,6 +37,12 @@ _FINANCE_META: Dict[str, Dict[str, str]] = {
         "path": "/uapi/domestic-stock/v1/finance/growth-ratio",
         "tr_id": "FHKST66430800",
     },
+    # EBITDA·EV/EBITDA·배당성향·EVA — 다른 여섯 종류에 없는 밸류에이션 지표들이라
+    # 퀀트 스크리닝에서 재무비율보다 오히려 자주 쓰인다.
+    "other_major_ratios": {
+        "path": "/uapi/domestic-stock/v1/finance/other-major-ratios",
+        "tr_id": "FHKST66430500",
+    },
 }
 
 
@@ -62,6 +69,7 @@ def _fetch_finance(
         f"{BASE_URL}{meta['path']}",
         headers=header.to_dict(),
         params=params,
+        timeout=KIS_TIMEOUT,
     )
     res.raise_for_status()
     body = res.json()
@@ -84,7 +92,8 @@ def get_finance(
     Args:
         iscd:         종목코드
         finance_type: balance_sheet | income_statement | financial_ratio |
-                      profit_ratio | stability_ratio | growth_ratio
+                      profit_ratio | stability_ratio | growth_ratio |
+                      other_major_ratios
         period_type:  "A" 연간 | "Q" 분기
         save:         True 시 DB 적재
     """

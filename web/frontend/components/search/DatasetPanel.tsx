@@ -31,6 +31,7 @@ const MAX_RANGE_DAYS: Record<string, number> = {
     minute: 31,      // 분봉 1개월
     "short-sell": 365 * 2, // 공매도 2년
     credit: 365 * 2,       // 신용잔고 2년
+    "loan-trans": 365 * 2, // 대차거래 2년
     dividend: 365 * 10,    // 배당 10년
 };
 
@@ -215,6 +216,7 @@ function GridPanel({ dataset, stock }: Props) {
                         ? "숫자 열이 없어 그래프로 그릴 수 없는 표입니다."
                         : undefined
                 }
+                paginated={!dataset.unpaged}
                 onPageSizeChange={() => { /* 자동 리필 없음 */ }}
                 toolbar={
                     fetchedAt && !loading ? (

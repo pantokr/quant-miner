@@ -4,6 +4,7 @@ import logging
 from typing import List
 
 from shared.models.stock import KisCommonHeader, InvestorRequest, InvestorItem, InvestorResponse
+from shared.config import KIS_TIMEOUT
 from shared.kis_auth import APP_KEY, APP_SECRET, BASE_URL
 from shared.kis_auth import get_valid_token
 from shared.db.stock_investor import upsert_investor_trend
@@ -26,6 +27,7 @@ def get_investor_trend(iscd: str, access_token: str = None, save: bool = False) 
         f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor",
         headers=header.to_dict(),
         params=req.model_dump(),
+        timeout=KIS_TIMEOUT,
     )
     res.raise_for_status()
     result = InvestorResponse(**res.json())

@@ -4,6 +4,7 @@ import requests
 from typing import Any, Dict, List, Optional
 
 from shared.models.stock import KisCommonHeader
+from shared.config import KIS_TIMEOUT
 from shared.kis_auth import APP_KEY, APP_SECRET, BASE_URL, REAL_BASE_URL
 from shared.kis_auth import get_valid_token, get_real_token
 from shared.db.stock_info import (
@@ -43,6 +44,7 @@ def get_stock_info_api(
         f"{REAL_BASE_URL}/uapi/domestic-stock/v1/quotations/search-stock-info",
         headers=header.to_dict(),
         params={"PRDT_TYPE_CD": prdt_type_cd, "PDNO": iscd},
+        timeout=KIS_TIMEOUT,
     )
     res.raise_for_status()
     body = res.json()
@@ -91,6 +93,7 @@ def fetch_holidays(
             f"{REAL_BASE_URL}/uapi/domestic-stock/v1/quotations/chk-holiday",
             headers=header.to_dict(),
             params={"BASS_DT": bass_dt, "CTX_AREA_FK": ctx_fk, "CTX_AREA_NK": ctx_nk},
+            timeout=KIS_TIMEOUT,
         )
         res.raise_for_status()
         body = res.json()
@@ -155,6 +158,7 @@ def get_dividend(
             "CTS": "",
             "HIGH_GB": "",
         },
+        timeout=KIS_TIMEOUT,
     )
     res.raise_for_status()
     body = res.json()
@@ -267,6 +271,7 @@ def get_estimate_perform(
         f"{BASE_URL}/uapi/domestic-stock/v1/quotations/estimate-perform",
         headers=header.to_dict(),
         params={"SHT_CD": iscd},
+        timeout=KIS_TIMEOUT,
     )
     res.raise_for_status()
     body = res.json()

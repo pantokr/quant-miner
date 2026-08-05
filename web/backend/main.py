@@ -36,8 +36,10 @@ app.include_router(account.router)     # 잔고/주문체결 → api 중계
 def startup():
     from shared.db.ml_model import create_table
     from shared.db.stock_master import create_table as create_master_table
+    from shared.db.stock_loan import create_table as create_loan_table
     create_table()          # 모델 레지스트리 테이블 보장
     create_master_table()   # 종목 마스터 테이블 보장
+    create_loan_table()     # 대차거래 테이블 보장
 
 
 @app.get("/health")

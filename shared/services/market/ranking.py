@@ -9,6 +9,7 @@ from shared.models.stock import (
     VolumeRankRequest, VolumeRankItem, VolumeRankResponse,
     ForeignInstRankRequest, ForeignInstRankItem, ForeignInstRankResponse,
 )
+from shared.config import KIS_TIMEOUT
 from shared.kis_auth import APP_KEY, APP_SECRET, BASE_URL
 from shared.kis_auth import get_valid_token
 
@@ -35,6 +36,7 @@ def get_fluctuation_rank(sort: str = "0", access_token: str = None) -> List[Fluc
         headers=_header(token, "FHPST01700000"),
         params=FluctuationRankRequest(
             FID_RANK_SORT_CLS_CODE=sort).model_dump(),
+        timeout=KIS_TIMEOUT,
     )
 
     res.raise_for_status()
@@ -58,6 +60,7 @@ def get_volume_rank(sort: str = "0", access_token: str = None) -> List[VolumeRan
         f"{BASE_URL}/uapi/domestic-stock/v1/quotations/volume-rank",
         headers=_header(token, "FHPST01710000"),
         params=VolumeRankRequest(FID_BLNG_CLS_CODE=sort).model_dump(),
+        timeout=KIS_TIMEOUT,
     )
     res.raise_for_status()
     result = VolumeRankResponse(**res.json())
@@ -87,6 +90,7 @@ def get_foreign_rank(sort: str = "0", access_token: str = None) -> List[ForeignI
             "FID_RANK_SORT_CLS_CODE": "0",
             "FID_ETC_CLS_CODE": "1",
         },
+        timeout=KIS_TIMEOUT,
     )
     res.raise_for_status()
     result = ForeignInstRankResponse(**res.json())
@@ -116,6 +120,7 @@ def get_institution_rank(sort: str = "0", access_token: str = None) -> List[Fore
             "FID_RANK_SORT_CLS_CODE": "0",
             "FID_ETC_CLS_CODE": "2",
         },
+        timeout=KIS_TIMEOUT,
     )
     res.raise_for_status()
     result = ForeignInstRankResponse(**res.json())

@@ -16,6 +16,7 @@ export const STOCK_API = {
     INVESTOR: (iscd: string) => `${PROXY}/stock/${iscd}/investor`,
     SHORT_SELL: (iscd: string) => `${PROXY}/stock/${iscd}/short-sell`,
     CREDIT: (iscd: string) => `${PROXY}/stock/${iscd}/credit`,
+    LOAN_TRANS: (iscd: string) => `${PROXY}/stock/${iscd}/loan-trans`,
 };
 
 export const MASTER_API = {

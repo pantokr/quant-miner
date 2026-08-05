@@ -21,6 +21,7 @@ _FINANCE_TYPES = [
     "profit_ratio",
     "stability_ratio",
     "growth_ratio",
+    "other_major_ratios",
 ]
 
 

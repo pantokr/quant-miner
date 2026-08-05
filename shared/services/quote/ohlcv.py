@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
 from shared.models.stock import KisCommonHeader, PeriodOhlcvRequest, OhlcvItem, OhlcvResponse
+from shared.config import KIS_TIMEOUT
 from shared.kis_auth import APP_KEY, APP_SECRET, BASE_URL
 from shared.kis_auth import get_valid_token
 from shared.db.stock_ohlcv import get_ohlcv_coverage, upsert_ohlcv
@@ -46,11 +47,16 @@ def _fetch_ohlcv_page(
         f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
         headers=header.to_dict(),
         params=req.model_dump(),
+        timeout=KIS_TIMEOUT,
     )
-    res.raise_for_status()
+    # 예전에는 raise_for_status()로 끊었다. KIS가 오류 본문(rt_cd/msg1)을 담아 주는데도
+    # 그게 사라지고 라우터에서 미처리 예외 → 화면에는 원인 없는 500만 남았다.
+    if res.status_code != 200:
+        logging.error(f"OHLCV HTTP 오류: [{res.status_code}] {res.text[:200]}")
+        return []
     result = OhlcvResponse(**res.json())
     if not result.is_success:
-        logging.error(f"OHLCV 오류: {result.msg1}")
+        logging.error(f"OHLCV 오류: {result.msg_cd} {result.msg1}")
         return []
     return result.output2
 
@@ -198,6 +204,10 @@ def get_ohlcv_all(
         base_date 오름차순 OhlcvItem 리스트
     """
     token = access_token or get_valid_token()
+    if not token:
+        # 토큰 없이 부르면 헤더가 "Bearer None"이 되어 KIS가 거절하고,
+        # 그 거절이 라우터까지 예외로 올라가 500이 된다. 여기서 끊는다.
+        raise RuntimeError("KIS 토큰 발급 실패 (1분 1회 제한이거나 앱키 문제)")
     today = datetime.today().strftime("%Y%m%d")
 
     logging.info(f"[{iscd}] OHLCV 전체 수집 시작 ({start_date} ~ {today})")

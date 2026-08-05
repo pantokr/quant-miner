@@ -36,6 +36,11 @@ def credit(iscd: str, request: Request):
     return proxy_get(f"/stock/{iscd}/credit", _q(request))
 
 
+@router.get("/stock/{iscd}/loan-trans")
+def loan_trans(iscd: str, request: Request):
+    return proxy_get(f"/stock/{iscd}/loan-trans", _q(request))
+
+
 # ── 계좌 ───────────────────────────────────────────────────
 @router.get("/account/balance")
 def balance(request: Request):

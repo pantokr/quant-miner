@@ -20,6 +20,11 @@ BASE_URL = (
     else "https://openapivts.koreainvestment.com:29443"
 )
 
+# KIS 호출 타임아웃(초).
+# 없으면 KIS가 응답을 안 줄 때 요청이 무기한 매달려 게이트웨이 워커가 물리고,
+# 화면에는 한참 뒤에 원인 없는 502만 뜬다. 끊고 로그를 남기는 쪽이 낫다.
+KIS_TIMEOUT = int(os.getenv("KIS_TIMEOUT", 15))
+
 # 계좌
 CANO = os.getenv("KIS_CANO", "")
 ACNT_PRDT_CD = os.getenv("KIS_ACNT_PRDT_CD", "01")

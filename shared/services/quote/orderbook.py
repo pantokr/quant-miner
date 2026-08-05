@@ -2,6 +2,7 @@
 import requests
 
 from shared.models.stock import KisCommonHeader, OrderBookRequest, OrderBookResponse
+from shared.config import KIS_TIMEOUT
 from shared.kis_auth import APP_KEY, APP_SECRET, BASE_URL
 from shared.kis_auth import get_valid_token
 
@@ -20,6 +21,7 @@ def get_orderbook(iscd: str, access_token: str = None) -> OrderBookResponse:
         f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-asking-price-exp-ccn",
         headers=header.to_dict(),
         params=req.model_dump(),
+        timeout=KIS_TIMEOUT,
     )
     res.raise_for_status()
     data = res.json()

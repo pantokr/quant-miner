@@ -49,6 +49,12 @@ interface DataGridProps {
      * 받은 행이 이 수에 못 미치면 호출부가 모자란 만큼 더 받아올 수 있다.
      */
     onPageSizeChange?: (size: number) => void;
+    /**
+     * 쪽 나누기 사용 여부. 끄면 행을 한 번에 다 펼치고 하단 페이지네이션 줄이 사라진다.
+     * 항목·값 목록처럼 행이 수십 개뿐이고 전체를 한눈에 훑는 표에서는 쪽 나누기가
+     * 도움이 되기는커녕 값을 찾으려면 쪽을 넘기게 만든다.
+     */
+    paginated?: boolean;
 }
 
 export function DataGrid({
@@ -63,6 +69,7 @@ export function DataGrid({
     onVisualize,
     visualizeDisabledReason,
     onPageSizeChange,
+    paginated = true,
 }: DataGridProps) {
     const [filter, setFilter] = useState("");
     const [sortKey, setSortKey] = useState<string | null>(null);
@@ -87,9 +94,11 @@ export function DataGrid({
         return [...filtered].sort((a, b) => compareRows(a, b, column, sortDesc));
     }, [filtered, sortKey, sortDesc, columns]);
 
-    const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
+    const pageCount = paginated ? Math.max(1, Math.ceil(sorted.length / pageSize)) : 1;
     const safePage = Math.min(page, pageCount - 1);
-    const visible = sorted.slice(safePage * pageSize, safePage * pageSize + pageSize);
+    const visible = paginated
+        ? sorted.slice(safePage * pageSize, safePage * pageSize + pageSize)
+        : sorted;
 
     const toggleSort = (key: string) => {
         if (sortKey !== key) {
@@ -301,6 +310,7 @@ export function DataGrid({
             </Box>
 
             {/* 페이지네이션 */}
+            {paginated && (
             <HStack justify="space-between" align="center" flexWrap="wrap" gap={3}>
                 <HStack gap={2}>
                     <Text fontSize="2xs" fontWeight="black" color="fg.muted" letterSpacing="wider">
@@ -358,6 +368,7 @@ export function DataGrid({
                     </Box>
                 </HStack>
             </HStack>
+            )}
         </VStack>
     );
 }

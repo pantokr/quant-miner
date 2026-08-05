@@ -6,6 +6,7 @@ import {
     CreditCard,
     Info,
     LayoutList,
+    Repeat,
     Target,
     TrendingDown,
     Users,
@@ -41,6 +42,7 @@ export const FINANCE_TYPES = [
     { value: "profit_ratio", label: "수익성비율" },
     { value: "stability_ratio", label: "안정성비율" },
     { value: "growth_ratio", label: "성장성비율" },
+    { value: "other_major_ratios", label: "기타주요비율" },
 ];
 
 export const PERIOD_OPTIONS = [
@@ -70,6 +72,11 @@ export interface Dataset {
     columns: (rows: GridRow[], p: QueryParams) => GridColumn[];
     /** 조회량이 커서 시간이 걸릴 수 있는 경우 표시할 경고 */
     warning?: string;
+    /**
+     * 표를 쪽으로 나누지 않는다.
+     * 항목·값 목록처럼 행이 수십 개뿐인 표에서는 쪽 나누기가 값을 찾는 걸 방해하기만 한다.
+     */
+    unpaged?: boolean;
 }
 
 const asArray = (json: unknown): GridRow[] =>
@@ -233,6 +240,28 @@ export const DATASETS: Dataset[] = [
         ],
     },
     {
+        id: "loan-trans",
+        label: "대차거래",
+        icon: Repeat,
+        description: "대차잔고·신규·상환 추이 — 잔고가 늘면 공매도 압력이 쌓인다 (실전투자 계정 필요)",
+        controls: ["dateRange"],
+        defaultRangeDays: 90,
+        buildUrl: (iscd, p) =>
+            `${STOCK_API.LOAN_TRANS(iscd)}?start=${p.start}&end=${p.end}&save=true`,
+        extract: unwrapData,
+        columns: () => [
+            { key: "bsop_date", label: "일자", type: "date", width: "110px" },
+            { key: "stck_prpr", label: "종가", type: "price" },
+            { key: "prdy_ctrt", label: "전일대비율", type: "percent" },
+            { key: "rmnd_stcn", label: "대차잔고 주수", type: "number" },
+            { key: "prdy_rmnd_vrss", label: "잔고 증감", type: "signed" },
+            { key: "rmnd_amt", label: "대차잔고 금액", type: "number" },
+            { key: "new_stcn", label: "신규 체결", type: "number" },
+            { key: "rdmp_stcn", label: "상환", type: "number" },
+            { key: "acml_vol", label: "거래량", type: "number" },
+        ],
+    },
+    {
         id: "finance",
         label: "재무제표",
         icon: Banknote,
@@ -316,6 +345,8 @@ export const DATASETS: Dataset[] = [
         icon: Info,
         description: "상장일·상장주수·액면가·업종 등 KIS 원본 필드 전체",
         controls: [],
+        // 한 종목의 속성 목록이라 시계열이 아니다 — 쪽을 넘겨 가며 찾을 표가 아니다
+        unpaged: true,
         buildUrl: iscd => `${FINANCE_API.INFO_BASIC(iscd)}?save=true`,
         extract: json => {
             if (!json || typeof json !== "object" || Array.isArray(json)) return [];

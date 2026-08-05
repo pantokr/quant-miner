@@ -4,6 +4,7 @@ import logging
 from typing import List
 
 from shared.models.stock import KisCommonHeader, ShortSellRequest, ShortSellItem, ShortSellResponse
+from shared.config import KIS_TIMEOUT
 from shared.kis_auth import APP_KEY, APP_SECRET, BASE_URL
 from shared.kis_auth import get_valid_token
 from shared.db.stock_short import upsert_short_sell
@@ -36,6 +37,7 @@ def get_short_sell(
         f"{BASE_URL}/uapi/domestic-stock/v1/quotations/daily-short-sale",
         headers=header.to_dict(),
         params=req.model_dump(),
+        timeout=KIS_TIMEOUT,
     )
     if res.status_code != 200:
         logging.warning(f"공매도 API 오류: {res.status_code}")

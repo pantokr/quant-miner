@@ -13,8 +13,35 @@ from shared.services.quote.orderbook import get_orderbook
 from shared.services.quote.investor import get_investor_trend
 from shared.services.market.short_sell import get_short_sell
 from shared.services.market.credit import get_credit
+from shared.services.market.loan import get_loan_trans
+# DB 조회는 모듈 상단에서 가져온다. 함수 안에서 지연 임포트하면 없는 이름을 써도
+# 기동할 때는 멀쩡하고 요청이 들어와야 500이 나서, 화면에서는 "데이터가 없다"로 보인다.
+from shared.db.stock_ohlcv import query_ohlcv
+from shared.db.stock_investor import query_investor_trend
+from shared.db.stock_short import query_short_sell, query_credit
+from shared.db.stock_loan import query_loan_trans
 
 router = APIRouter(prefix="/stock", tags=["stock"])
+
+
+def _int(value, default: int = 0) -> int:
+    """KIS 숫자 필드 → int.
+
+    KIS는 값이 없는 칸을 빈 문자열로 준다 (특히 오래된 일자의 거래대금·전일대비).
+    그대로 int()에 넣으면 행 하나 때문에 응답 전체가 500이 되고, 화면에는 원인 없는
+    "HTTP 500"만 남는다. DB 적재 쪽(upsert_ohlcv)은 예전부터 이렇게 방어하고 있었다.
+    """
+    try:
+        return int(float(str(value).replace(",", "").strip()))
+    except (TypeError, ValueError):
+        return default
+
+
+def _float(value, default: float = 0.0) -> float:
+    try:
+        return float(str(value).replace(",", "").strip())
+    except (TypeError, ValueError):
+        return default
 
 
 @router.get("/{iscd}/minute-chart", response_model=List[MinuteChartRow])
@@ -58,8 +85,6 @@ def period_ohlcv(
     save: bool = Query(True, description="DB 저장 여부"),
 ):
     """기간별 OHLCV 조회 (DB 우선, 모자란 구간만 KIS 수집)"""
-    from shared.db.stock_ohlcv import query_ohlcv
-
     # 예전에는 캐시가 "하나라도" 있으면 그대로 돌려줬다. 그래서 최근 3개월만 적재된
     # 종목을 1년으로 조회하면 3개월치만 나오고, 나머지는 영영 채워지지 않았다.
     # 이제는 요청 구간과 DB 커버리지를 비교해 빠진 구간만 받아 온다.
@@ -100,17 +125,20 @@ def ohlcv_all(
     save: bool = Query(True, description="DB 저장 여부"),
 ):
     """전 기간 OHLCV 수집 (페이지네이션 자동 처리, 시간 소요 있음)"""
-    items = get_ohlcv_all(iscd=iscd, start_date=start,
-                          period=period, save=save)
+    try:
+        items = get_ohlcv_all(iscd=iscd, start_date=start,
+                              period=period, save=save)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     if not items:
         raise HTTPException(status_code=404, detail="데이터 없음")
     return [
         OhlcvRow(
             date=i.stck_bsop_date,
-            open=int(i.stck_oprc), high=int(i.stck_hgpr),
-            low=int(i.stck_lwpr), close=int(i.stck_clpr),
-            volume=int(i.acml_vol), amount=int(i.acml_tr_pbmn),
-            change_sign=i.prdy_vrss_sign, change_val=int(i.prdy_vrss),
+            open=_int(i.stck_oprc), high=_int(i.stck_hgpr),
+            low=_int(i.stck_lwpr), close=_int(i.stck_clpr),
+            volume=_int(i.acml_vol), amount=_int(i.acml_tr_pbmn),
+            change_sign=i.prdy_vrss_sign, change_val=_int(i.prdy_vrss),
         )
         for i in items
     ]
@@ -124,15 +152,15 @@ def current_price(iscd: str):
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
     return CurrentPrice(
-        current=int(p.stck_prpr),
-        open=int(p.stck_oprc), high=int(p.stck_hgpr), low=int(p.stck_lwpr),
-        change_val=int(p.prdy_vrss),
-        change_rate=float(p.prdy_ctrt),
-        volume=int(p.acml_vol),
-        market_cap=int(p.hts_avls),
-        per=float(p.per or 0),
-        pbr=float(p.pbr or 0),
-        foreign_ratio=float(p.hts_frgn_ehrt or 0),
+        current=_int(p.stck_prpr),
+        open=_int(p.stck_oprc), high=_int(p.stck_hgpr), low=_int(p.stck_lwpr),
+        change_val=_int(p.prdy_vrss),
+        change_rate=_float(p.prdy_ctrt),
+        volume=_int(p.acml_vol),
+        market_cap=_int(p.hts_avls),
+        per=_float(p.per),
+        pbr=_float(p.pbr),
+        foreign_ratio=_float(p.hts_frgn_ehrt),
     )
 
 
@@ -155,8 +183,6 @@ def investor_trend(
     use_cache: bool = Query(True, description="DB 캐시 사용 여부"),
 ):
     """투자자별 매매동향 (모의환경에서는 빈 배열)"""
-    from shared.db.stock_investor import query_investor_trend
-
     if use_cache:
         cached = query_investor_trend(iscd)
         if cached:
@@ -192,7 +218,6 @@ def short_sell(
     save: bool = Query(True),
 ):
     """공매도 현황 (DB 우선, 없으면 KIS 수집)"""
-    from shared.db.stock_short import query_short_sell
     cached = query_short_sell(iscd, start, end)
     if not cached:
         get_short_sell(iscd, start, end, save=save)
@@ -208,9 +233,23 @@ def credit(
     save: bool = Query(True),
 ):
     """신용잔고 (DB 우선, 없으면 KIS 수집)"""
-    from shared.db.stock_short import query_credit
     cached = query_credit(iscd, start, end)
     if not cached:
         get_credit(iscd, start, end, save=save)
         cached = query_credit(iscd, start, end)
+    return {"count": len(cached), "data": cached}
+
+
+@router.get("/{iscd}/loan-trans")
+def loan_trans(
+    iscd: str,
+    start: str = Query(..., examples=["20260102"]),
+    end:   str = Query(..., examples=["20260803"]),
+    save: bool = Query(True),
+):
+    """대차거래추이 — 대차잔고는 공매도 선행지표 (DB 우선, 없으면 KIS 수집)"""
+    cached = query_loan_trans(iscd, start, end)
+    if not cached:
+        get_loan_trans(iscd, start, end, save=save)
+        cached = query_loan_trans(iscd, start, end)
     return {"count": len(cached), "data": cached}

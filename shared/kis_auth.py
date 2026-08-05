@@ -10,7 +10,7 @@ import requests
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from shared.config import APP_KEY, APP_SECRET, BASE_URL, ENV_DV, CANO, ACNT_PRDT_CD
+from shared.config import APP_KEY, APP_SECRET, BASE_URL, ENV_DV, CANO, ACNT_PRDT_CD, KIS_TIMEOUT
 from shared.models.auth import (
     AuthTokenRequest, AuthTokenResponse,
     RevokeTokenRequest, RevokeTokenResponse,
@@ -37,13 +37,23 @@ _BASE_URL_BY_ENV = {"real": REAL_BASE_URL, "demo": DEMO_BASE_URL}
 # ── 토큰 발급/해지/WS ──────────────────────────────────────
 
 def _fetch_token_response(appkey: str, appsecret: str, base_url: str) -> Optional[AuthTokenResponse]:
-    """접근 토큰 발급 — 응답 전체 반환 (만료시간 포함)"""
+    """접근 토큰 발급 — 응답 전체 반환 (만료시간 포함)
+
+    KIS는 토큰 발급을 1분에 1회로 제한하는데, 한도를 넘기면 거절 대신 응답을 한참
+    붙들고 있는다(실측 70초). 타임아웃이 없으면 그동안 이 호출을 기다리는 요청 전체가
+    같이 멈춰 서고, 화면에는 한참 뒤에 원인 없는 500/502만 뜬다.
+    """
     req = AuthTokenRequest(appkey=appkey, appsecret=appsecret)
-    res = requests.post(
-        f"{base_url}/oauth2/tokenP",
-        headers=_AUTH_HEADERS,
-        data=req.model_dump_json(),
-    )
+    try:
+        res = requests.post(
+            f"{base_url}/oauth2/tokenP",
+            headers=_AUTH_HEADERS,
+            data=req.model_dump_json(),
+            timeout=KIS_TIMEOUT,
+        )
+    except requests.RequestException as e:
+        logging.error(f"토큰 발급 실패(통신): {e}")
+        return None
     if res.status_code != 200:
         logging.error(f"토큰 발급 실패: [{res.status_code}] {res.text}")
         return None

@@ -4,6 +4,7 @@ import logging
 from typing import List
 
 from shared.models.stock import KisCommonHeader, CreditRequest, CreditItem, CreditResponse
+from shared.config import KIS_TIMEOUT
 from shared.kis_auth import APP_KEY, APP_SECRET, BASE_URL
 from shared.kis_auth import get_valid_token
 from shared.db.stock_short import upsert_credit
@@ -39,6 +40,7 @@ def get_credit(
             "FID_INPUT_DATE_1": end_date,
             "FID_DIV_CLS_CODE": "0",
         },
+        timeout=KIS_TIMEOUT,
     )
     if res.status_code != 200:
         logging.warning(f"신용잔고 API 오류: {res.status_code}")
